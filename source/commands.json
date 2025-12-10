@@ -1,0 +1,114 @@
+{
+    "open_youtube": {
+        "phrases": [
+            "открой ютуб",
+            "включи ютуб",
+            "открой youtube",
+            "open youtube"
+        ],
+        "action": "actions.sites.open_youtube"
+    },
+    "open_google": {
+        "phrases": [
+            "открой гугл",
+            "открой google",
+            "запусти гугл",
+            "поиск в гугле"
+        ],
+        "action": "actions.sites.open_google"
+    },
+    "open_vk": {
+        "phrases": [
+            "открой вк",
+            "открой вконтакте",
+            "запусти вк"
+        ],
+        "action": "actions.sites.open_vk"
+    },
+    "open_yandex": {
+        "phrases": [
+            "открой яндекс",
+            "поиск в яндексе",
+            "открой yandex"
+        ],
+        "action": "actions.sites.open_yandex"
+    },
+    "open_github": {
+        "phrases": [
+            "открой гитхаб",
+            "открой github"
+        ],
+        "action": "actions.sites.open_github"
+    },
+    "calculator": {
+        "phrases": [
+            "посчитай",
+            "вычисли",
+            "калькулятор"
+        ],
+        "action": "actions.calculator.calculate"
+    },
+    "translate": {
+        "phrases": [
+            "переведи",
+            "перевод"
+        ],
+        "action": "actions.translator.translate"
+    },
+    "shutdown": {
+        "phrases": [
+            "выключи компьютер",
+            "выруби пк",
+            "shutdown"
+        ],
+        "action": "actions.system.shutdown"
+    },
+    "time": {
+        "phrases": [
+            "который час",
+            "сколько времени",
+            "подскажи время"
+        ],
+        "action": "actions.system.tell_time"
+    },
+    "date": {
+        "phrases": [
+            "какое сегодня число",
+            "какая сегодня дата",
+            "какой сегодня день"
+        ],
+        "action": "actions.system.tell_date"
+    },
+    "notepad": {
+        "phrases": [
+            "открой блокнот",
+            "запусти блокнот",
+            "открой notepad"
+        ],
+        "action": "actions.system.open_notepad"
+    },
+    "joke": {
+        "phrases": [
+            "расскажи шутку",
+            "расскажи анекдот",
+            "пошути"
+        ],
+        "action": "actions.fun.tell_joke"
+    },
+    "coin": {
+        "phrases": [
+            "подбрось монетку",
+            "орел или решка",
+            "брось монетку"
+        ],
+        "action": "actions.fun.flip_coin"
+    },
+    "random_number": {
+        "phrases": [
+            "случайное число",
+            "выбери число",
+            "выбери рандомное число"
+        ],
+        "action": "actions.fun.random_number"
+    }
+}
