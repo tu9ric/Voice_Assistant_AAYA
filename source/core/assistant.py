@@ -5,12 +5,21 @@ import speech_recognition as sr
 
 from core.processor import CommandProcessor
 
+import sys, os
+
+def resource_path(relative_path):
+    """Работает и в Python, и в EXE"""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 
 class Assistant:
     """Голосовой ассистент."""
 
     def __init__(self, commands_path: str) -> None:
-        self.commands: Dict[str, dict] = self._load_commands(commands_path)
+        json_path = resource_path(commands_path)
+        self.commands: Dict[str, dict] = self._load_commands(json_path)
         self.processor = CommandProcessor(self.commands)
         self.recognizer = sr.Recognizer()
         self.microphone = sr.Microphone()

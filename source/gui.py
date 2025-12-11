@@ -7,6 +7,14 @@ import sys
 from core.assistant import Assistant
 from core.processor import CommandProcessor
 
+import sys, os
+
+def resource_path(relative_path):
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
 
 # ----------------------- Перехват print -----------------------
 class Redirector:
@@ -127,7 +135,8 @@ class AssistantGUI:
     # ----------------------- Список команд -----------------------
     def show_commands_window(self):
         try:
-            with open("commands.json", "r", encoding="utf-8") as f:
+            path = resource_path("commands.json")
+            with open(path, "r", encoding="utf-8") as f:
                 commands = json.load(f)
         except Exception as e:
             print(f"Ошибка загрузки commands.json: {e}")
