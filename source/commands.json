@@ -1,0 +1,183 @@
+{
+  "open_youtube": {
+    "phrases": ["открой ютуб", "включи ютуб", "youtube", "open youtube", "ютуб"],
+    "action": "actions.sites.open_youtube"
+  },
+  "open_google": {
+    "phrases": ["открой гугл", "google", "гугл"],
+    "action": "actions.sites.open_google"
+  },
+  "open_vk": {
+    "phrases": ["открой вк", "вконтакте", "vk"],
+    "action": "actions.sites.open_vk"
+  },
+  "open_yandex": {
+    "phrases": ["открой яндекс", "yandex", "яндекс"],
+    "action": "actions.sites.open_yandex"
+  },
+  "open_github": {
+    "phrases": ["открой гитхаб", "github", "гитхаб"],
+    "action": "actions.sites.open_github"
+  },
+
+  "open_mail": {
+    "phrases": ["открой почту", "почта", "gmail", "гмейл", "yandex mail", "яндекс почта"],
+    "action": "actions.sites.open_mail"
+  },
+  "open_translate_site": {
+    "phrases": ["открой переводчик", "переводчик", "гугл переводчик", "яндекс переводчик"],
+    "action": "actions.sites.open_translate"
+  },
+  "open_maps": {
+    "phrases": ["открой карты", "карты", "гугл карты", "яндекс карты", "maps"],
+    "action": "actions.sites.open_maps"
+  },
+  "open_weather": {
+    "phrases": ["открой погоду", "погода", "weather"],
+    "action": "actions.sites.open_weather"
+  },
+  "open_news": {
+    "phrases": ["открой новости", "новости", "news"],
+    "action": "actions.sites.open_news"
+  },
+  "open_wikipedia": {
+    "phrases": ["википедия", "открой википедию", "wikipedia"],
+    "action": "actions.sites.open_wikipedia"
+  },
+  "open_twitch": {
+    "phrases": ["твич", "twitch", "открой твич"],
+    "action": "actions.sites.open_twitch"
+  },
+  "open_reddit": {
+    "phrases": ["реддит", "reddit", "открой реддит"],
+    "action": "actions.sites.open_reddit"
+  },
+
+  "search_google": {
+    "phrases": ["найди в гугле", "поиск гугл", "загугли"],
+    "action": "actions.sites.search_google"
+  },
+  "search_yandex": {
+    "phrases": ["найди в яндексе", "поиск яндекс", "заяндекси"],
+    "action": "actions.sites.search_yandex"
+  },
+
+  "calculator": {
+    "phrases": ["посчитай", "вычисли", "калькулятор"],
+    "action": "actions.calculator.calculate"
+  },
+  "translate": {
+    "phrases": ["переведи", "перевод"],
+    "action": "actions.translator.translate"
+  },
+
+  "time": {
+    "phrases": ["который час", "сколько времени", "подскажи время", "время"],
+    "action": "actions.system.tell_time"
+  },
+  "date": {
+    "phrases": ["какое сегодня число", "какая сегодня дата", "какой сегодня день", "дата"],
+    "action": "actions.system.tell_date"
+  },
+
+  "notepad": {
+    "phrases": ["открой блокнот", "запусти блокнот", "notepad"],
+    "action": "actions.system.open_notepad"
+  },
+  "open_explorer": {
+    "phrases": ["открой проводник", "проводник", "explorer"],
+    "action": "actions.system.open_explorer"
+  },
+  "open_task_manager": {
+    "phrases": ["открой диспетчер задач", "диспетчер задач", "task manager"],
+    "action": "actions.system.open_task_manager"
+  },
+  "open_settings": {
+    "phrases": ["открой настройки", "параметры", "настройки windows"],
+    "action": "actions.system.open_settings"
+  },
+  "open_cmd": {
+    "phrases": ["открой cmd", "командная строка", "cmd"],
+    "action": "actions.system.open_cmd"
+  },
+  "open_powershell": {
+    "phrases": ["открой powershell", "пауэршелл", "power shell"],
+    "action": "actions.system.open_powershell"
+  },
+
+  "shutdown": {
+    "phrases": ["выключи компьютер", "выруби пк", "shutdown"],
+    "action": "actions.system.shutdown"
+  },
+  "restart": {
+    "phrases": ["перезагрузи компьютер", "перезагрузка", "restart", "ребут"],
+    "action": "actions.system.restart"
+  },
+  "lock_pc": {
+    "phrases": ["заблокируй компьютер", "заблокируй экран", "lock", "блокировка"],
+    "action": "actions.system.lock"
+  },
+  "sleep_pc": {
+    "phrases": ["спящий режим", "усыпи компьютер", "sleep"],
+    "action": "actions.system.sleep"
+  },
+
+  "joke": {
+    "phrases": ["расскажи шутку", "расскажи анекдот", "пошути"],
+    "action": "actions.fun.tell_joke"
+  },
+  "coin": {
+    "phrases": ["подбрось монетку", "орел или решка", "брось монетку", "монетка"],
+    "action": "actions.fun.flip_coin"
+  },
+  "random_number": {
+    "phrases": ["случайное число", "выбери число", "рандомное число", "рандом"],
+    "action": "actions.fun.random_number"
+  },
+  "greet": {
+    "phrases": ["привет", "здравствуй", "хай", "hello"],
+    "action": "actions.fun.greet"
+  },
+  "bye": {
+    "phrases": ["пока", "до свидания", "выключись", "закройся"],
+    "action": "actions.fun.goodbye"
+  },
+
+  "roll_dice": {
+    "phrases": ["брось кубик", "кидай кубик", "кубик"],
+    "action": "actions.tools.roll_dice"
+  },
+  "generate_password": {
+    "phrases": ["сгенерируй пароль", "сделай пароль", "создай пароль"],
+    "action": "actions.tools.generate_password"
+  },
+  "copy_clipboard": {
+    "phrases": ["скопируй в буфер", "в буфер", "скопируй текст"],
+    "action": "actions.tools.copy_to_clipboard"
+  },
+  "timer": {
+    "phrases": ["таймер", "поставь таймер", "засеки"],
+    "action": "actions.tools.timer"
+  },
+
+  "open_chrome": {
+    "phrases": ["открой хром", "chrome", "гугл хром"],
+    "action": "actions.apps.open_chrome"
+  },
+  "open_edge": {
+    "phrases": ["открой edge", "эдж", "microsoft edge"],
+    "action": "actions.apps.open_edge"
+  },
+  "open_discord": {
+    "phrases": ["открой дискорд", "discord", "дискорд"],
+    "action": "actions.apps.open_discord"
+  },
+  "open_telegram": {
+    "phrases": ["открой телеграм", "telegram", "телеграм", "телега"],
+    "action": "actions.apps.open_telegram"
+  },
+  "open_steam": {
+    "phrases": ["открой стим", "steam", "стим"],
+    "action": "actions.apps.open_steam"
+  }
+}
