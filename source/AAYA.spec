@@ -1,12 +1,16 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_submodules
+
+hiddenimports = ['winotify', 'keyboard', 'pystray', 'PIL']
+hiddenimports += collect_submodules('actions')
 
 
 a = Analysis(
     ['main.py'],
-    pathex=['.'],
+    pathex=[],
     binaries=[],
     datas=[('commands.json', '.')],
-    hiddenimports=['actions', 'actions.fun', 'actions.sites', 'actions.system', 'actions.calculator', 'actions.translator', 'actions.apps', 'actions.tools'],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

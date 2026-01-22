@@ -1,45 +1,44 @@
+from __future__ import annotations
 import os
+import platform
 import subprocess
 from datetime import datetime
 
+
+def _os() -> str:
+    return platform.system().lower()
+
+
 def shutdown(text: str):
-    os.system("shutdown /s /t 0")
+    if _os() == "windows":
+        subprocess.run(["shutdown", "/s", "/t", "0"], check=False)
+    elif _os() == "linux":
+        subprocess.run(["shutdown", "-h", "now"], check=False)
+    else:
+        print("ОС не поддерживает shutdown в текущей конфигурации.")
 
-def restart(text: str):
-    os.system("shutdown /r /t 0")
-
-def lock(text: str):
-    os.system("rundll32.exe user32.dll,LockWorkStation")
-
-def sleep(text: str):
-    # спящий режим
-    os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
 
 def tell_time(text: str):
     now = datetime.now().strftime("%H:%M")
-    print(f"🕒 Сейчас {now}")
+    print(f"Сейчас {now}")
+
 
 def tell_date(text: str):
-    now = datetime.now().strftime("%d.%m.%Y")
-    print(f"📅 Сегодня {now}")
+    today = datetime.now().strftime("%d.%m.%Y")
+    print(f"Сегодня {today}")
+
 
 def open_notepad(text: str):
-    subprocess.Popen("notepad", shell=True)
-
-def open_explorer(text: str):
-    subprocess.Popen("explorer", shell=True)
-
-def open_task_manager(text: str):
-    subprocess.Popen("taskmgr", shell=True)
-
-def open_settings(text: str):
-    subprocess.Popen("start ms-settings:", shell=True)
-
-def open_cmd(text: str):
-    subprocess.Popen("start cmd", shell=True)
-
-def open_powershell(text: str):
-    subprocess.Popen("start powershell", shell=True)
-
-def open_calculator(text: str):
-    subprocess.Popen("calc", shell=True)
+    if _os() == "windows":
+        subprocess.run(["notepad.exe"], check=False)
+    elif _os() == "linux":
+        # пробуем популярные редакторы
+        for cmd in (["gedit"], ["kate"], ["nano"], ["xterm", "-e", "nano"]):
+            try:
+                subprocess.run(cmd, check=False)
+                return
+            except Exception:
+                continue
+        print("Не найден текстовый редактор (gedit/kate/nano).")
+    else:
+        print("ОС не поддерживается.")
