@@ -1,4 +1,4 @@
-#!C:\Users\Khalt\OneDrive\Desktop\UIRS_AAYA-mainv2.2\.venv\Scripts\python.exe
+#!D:\Study\6_semestr\UIRS\Voice_Assistant_AAYA\.venv\Scripts\python.exe
 # -*- coding: utf-8 -*-
 import argparse
 import sys

@@ -1,0 +1,13 @@
+rmdir .venv 
+(ну или просто удалить старую venv)
+
+py -0
+
+py -3.10 -m venv .venv
+
+В powershell:
+.\.venv\Scripts\Activate
+
+python -m pip install --upgrade pip
+
+python -m pip install customtkinter speechrecognition googletrans==4.0.0-rc1 keyboard pystray pillow winotify pyaudio pymorphy3

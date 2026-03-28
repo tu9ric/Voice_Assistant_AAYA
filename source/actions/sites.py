@@ -50,15 +50,58 @@ def _extract_query(text: str, triggers: list[str]) -> str:
     return ""
 
 def search_google(text: str):
-    q = _extract_query(text, ["найди в гугле", "поиск гугл", "загугли"])
-    if not q:
-        q = "что такое python"
-    url = "https://www.google.com/search?q=" + urllib.parse.quote(q)
-    webbrowser.open(url)
+    """Поиск в Google по команде вида 'загугли ...'"""
+    try:
+        original_text = text.strip()
+        lower_text = original_text.lower()
+
+        prefixes = ["загугли", "найди в гугле", "поиск в гугле"]
+
+        query = original_text
+        for prefix in prefixes:
+            if lower_text.startswith(prefix):
+                query = original_text[len(prefix):].strip(" :,-")
+                break
+
+        if not query:
+            print("Не указан запрос для поиска в Google.")
+            return
+
+        url = "https://www.google.com/search?q=" + urllib.parse.quote(query)
+        webbrowser.open(url)
+        print(f"Ищу в Google: {query}")
+
+    except Exception as e:
+        print(f"Ошибка поиска в Google: {e}")
 
 def search_yandex(text: str):
-    q = _extract_query(text, ["найди в яндексе", "поиск яндекс", "заяндекси"])
-    if not q:
-        q = "что такое python"
-    url = "https://yandex.ru/search/?text=" + urllib.parse.quote(q)
-    webbrowser.open(url)
+    """Поиск в Яндексе по команде 'найди ...' / 'заяндексить ...'"""
+    try:
+        original_text = text.strip()
+        lower_text = original_text.lower()
+
+        prefixes = [
+            "найди",
+            "найди в яндексе",
+            "заяндексить",
+            "поиск в яндексе"
+        ]
+
+        query = original_text
+
+        for prefix in prefixes:
+            if lower_text.startswith(prefix):
+                query = original_text[len(prefix):].strip(" :,-")
+                break
+
+        if not query:
+            print("Не указан запрос для поиска в Яндексе.")
+            return
+
+        url = "https://yandex.ru/search/?text=" + urllib.parse.quote(query)
+        webbrowser.open(url)
+
+        print(f"Ищу в Яндексе: {query}")
+
+    except Exception as e:
+        print(f"Ошибка поиска в Яндексе: {e}")

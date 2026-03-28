@@ -38,7 +38,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="C:\Users\Khalt\OneDrive\Desktop\UIRS_AAYA-mainv2.2\.venv"
+VIRTUAL_ENV="D:\Study\6_semestr\UIRS\Voice_Assistant_AAYA\.venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"
