@@ -38,6 +38,13 @@ def _minutes(hm: str) -> int:
     return h * 60 + m
 
 
+def _ui_date(iso_date: str) -> str:
+    try:
+        return datetime.strptime(iso_date, "%Y-%m-%d").strftime("%d-%m-%Y")
+    except Exception:
+        return iso_date
+
+
 class TasksTab:
     def __init__(self, parent, store, on_changed=None):
         self.parent = parent
@@ -70,6 +77,13 @@ class TasksTab:
         for child in self.list.winfo_children():
             child.destroy()
 
+        if not self.store.get_current_user():
+            ctk.CTkLabel(
+                self.list,
+                text="Войдите в аккаунт, чтобы видеть и создавать свои задачи."
+            ).grid(row=0, column=0, sticky="w", padx=8, pady=8)
+            return
+
         if not tasks:
             ctk.CTkLabel(self.list, text="Задач нет.").grid(row=0, column=0, sticky="w", padx=8, pady=8)
             return
@@ -83,10 +97,8 @@ class TasksTab:
 
             def _toggle(task_id=t.id, var=done_var):
                 try:
-                    if hasattr(self.store, "update_task_done"):
-                        self.store.update_task_done(task_id, int(var.get()))
-                    else:
-                        self.store.set_done(task_id, int(var.get()))
+                    self.store.update_task_done(task_id, int(var.get()))
+                    self.refresh()
                     if self.on_changed:
                         self.on_changed()
                 except Exception as e:
@@ -95,13 +107,18 @@ class TasksTab:
             ctk.CTkCheckBox(row, text="", variable=done_var, command=_toggle).grid(row=0, column=0, padx=8, pady=8, sticky="w")
 
             tag = f" [{t.tag}]" if getattr(t, "tag", None) else ""
-            when = t.date
+            when = _ui_date(t.date)
             if getattr(t, "time_start", None):
                 span = t.time_start + (f"–{t.time_end}" if getattr(t, "time_end", None) else "")
                 when += f" {span}"
 
             title = f"{t.title}{tag}"
-            ctk.CTkLabel(row, text=title).grid(row=0, column=1, sticky="w", padx=6)
+
+            title_font = ctk.CTkFont(size=18)
+            if int(getattr(t, "done", 0)) == 1:
+                title_font.configure(overstrike=True)
+
+            ctk.CTkLabel(row, text=title, font=title_font).grid(row=0, column=1, sticky="w", padx=6)
             ctk.CTkLabel(row, text=when).grid(row=0, column=2, sticky="e", padx=8)
 
             extra_lines = []
@@ -118,6 +135,23 @@ class TasksTab:
                     row=1, column=1, columnspan=2, sticky="w", padx=6, pady=(0, 8)
                 )
 
+            btns = ctk.CTkFrame(row, fg_color="transparent")
+            btns.grid(row=0, column=3, rowspan=2, padx=8, pady=8, sticky="e")
+
+            ctk.CTkButton(btns, text="✏", width=36, command=lambda task=t: self._open_add_task(task)).pack(side="left", padx=4)
+            ctk.CTkButton(btns, text="🗑", width=36, command=lambda task_id=t.id: self._delete_task(task_id)).pack(side="left", padx=4)
+
+    def _delete_task(self, task_id: int):
+        if not messagebox.askyesno("TODO", "Удалить задачу?"):
+            return
+        try:
+            self.store.delete_task(task_id)
+            self.refresh()
+            if self.on_changed:
+                self.on_changed()
+        except Exception as e:
+            messagebox.showerror("TODO", str(e))
+
     def _reminders_preview(self, offsets_json: str) -> str:
         try:
             arr = json.loads(offsets_json or "[]")
@@ -129,10 +163,15 @@ class TasksTab:
         except Exception:
             return ""
 
-    # ------------------ Dialog ------------------
-    def _open_add_task(self):
+    def _open_add_task(self, task=None):
+        if not self.store.get_current_user():
+            messagebox.showerror("TODO", "Сначала войдите в аккаунт.")
+            return
+
+        editing = task is not None
+
         win = ctk.CTkToplevel(self.parent.winfo_toplevel())
-        win.title("Добавить задачу")
+        win.title("Редактировать задачу" if editing else "Добавить задачу")
         win.geometry("560x560")
         win.minsize(520, 520)
         win.grab_set()
@@ -141,16 +180,16 @@ class TasksTab:
         body.pack(fill="both", expand=True, padx=16, pady=16)
         body.grid_columnconfigure(0, weight=1)
 
-        # Title
         e_title = ctk.CTkEntry(body, placeholder_text="Название задачи")
         e_title.grid(row=0, column=0, sticky="ew", pady=(0, 10))
+        if editing:
+            e_title.insert(0, task.title or "")
 
-        # Date row + picker
         date_row = ctk.CTkFrame(body)
         date_row.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         date_row.grid_columnconfigure(0, weight=1)
 
-        date_var = ctk.StringVar(value=ddate.today().isoformat())
+        date_var = ctk.StringVar(value=(task.date if editing else ddate.today().isoformat()))
         e_date = ctk.CTkEntry(date_row, textvariable=date_var)
         e_date.grid(row=0, column=0, sticky="ew", padx=(0, 8), pady=8)
 
@@ -158,30 +197,46 @@ class TasksTab:
             row=0, column=1, pady=8
         )
 
-        # Time + reminders
         time_box = ctk.CTkFrame(body)
         time_box.grid(row=2, column=0, sticky="ew", pady=(0, 10))
         time_box.grid_columnconfigure((0, 1, 2), weight=1)
 
-        all_day_var = ctk.IntVar(value=0)
+        all_day_initial = 1 if editing and not getattr(task, "time_start", None) else 0
+        if not editing:
+            all_day_initial = 0
+
+        all_day_var = ctk.IntVar(value=all_day_initial)
         chk_all_day = ctk.CTkCheckBox(time_box, text="Без времени (весь день)", variable=all_day_var)
         chk_all_day.grid(row=0, column=0, columnspan=3, sticky="w", padx=8, pady=(10, 6))
 
-        # Start (row 1)
         ctk.CTkLabel(time_box, text="Начало").grid(row=1, column=0, sticky="w", padx=8, pady=(0, 8))
-        start_h = ctk.CTkOptionMenu(time_box, values=HOURS); start_h.set("09")
+        start_h = ctk.CTkOptionMenu(time_box, values=HOURS)
         start_h.grid(row=1, column=1, sticky="ew", padx=4, pady=(0, 8))
-        start_m = ctk.CTkOptionMenu(time_box, values=MINUTES); start_m.set("00")
+        start_m = ctk.CTkOptionMenu(time_box, values=MINUTES)
         start_m.grid(row=1, column=2, sticky="ew", padx=4, pady=(0, 8))
 
-        # End (row 2)
         ctk.CTkLabel(time_box, text="Конец").grid(row=2, column=0, sticky="w", padx=8, pady=(0, 10))
-        end_h = ctk.CTkOptionMenu(time_box, values=HOURS); end_h.set("10")
+        end_h = ctk.CTkOptionMenu(time_box, values=HOURS)
         end_h.grid(row=2, column=1, sticky="ew", padx=4, pady=(0, 10))
-        end_m = ctk.CTkOptionMenu(time_box, values=MINUTES); end_m.set("00")
+        end_m = ctk.CTkOptionMenu(time_box, values=MINUTES)
         end_m.grid(row=2, column=2, sticky="ew", padx=4, pady=(0, 10))
 
-        # Reminders right under time
+        if editing and task.time_start:
+            sh, sm = _parse_hm(task.time_start)
+            start_h.set(f"{sh:02d}")
+            start_m.set(f"{sm:02d}")
+        else:
+            start_h.set("09")
+            start_m.set("00")
+
+        if editing and task.time_end:
+            eh, em = _parse_hm(task.time_end)
+            end_h.set(f"{eh:02d}")
+            end_m.set(f"{em:02d}")
+        else:
+            end_h.set("10")
+            end_m.set("00")
+
         rem_frame = ctk.CTkFrame(time_box)
         rem_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=8, pady=(0, 10))
         rem_frame.grid_columnconfigure((0, 1), weight=1)
@@ -190,27 +245,35 @@ class TasksTab:
             row=0, column=0, columnspan=2, sticky="w", pady=(8, 6)
         )
 
+        current_offsets = []
+        if editing:
+            try:
+                current_offsets = json.loads(task.remind_offsets_json or "[]")
+            except Exception:
+                current_offsets = []
+
         rem_vars = []
         for idx, (name, code) in enumerate(REMINDER_PRESETS):
-            v = ctk.IntVar(value=0)
+            v = ctk.IntVar(value=1 if code in current_offsets else 0)
             rem_vars.append((code, v))
             r = 1 + idx // 2
             c = idx % 2
             ctk.CTkCheckBox(rem_frame, text=name, variable=v).grid(row=r, column=c, sticky="w", padx=2, pady=4)
 
-        # Tag
         e_tag = ctk.CTkEntry(body, placeholder_text="Тег (необязательно)")
         e_tag.grid(row=3, column=0, sticky="ew", pady=(0, 10))
+        if editing and task.tag:
+            e_tag.insert(0, task.tag)
 
-        # Description (collapsible)
         desc_frame = ctk.CTkFrame(body)
         desc_frame.grid(row=4, column=0, sticky="ew", pady=(0, 10))
         desc_frame.grid_columnconfigure(0, weight=1)
 
-        desc_open = ctk.IntVar(value=0)
+        desc_open = ctk.IntVar(value=1 if editing and (task.description or "").strip() else 0)
         txt_desc = ctk.CTkTextbox(desc_frame, wrap="word", height=90)
         txt_desc.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 8))
-        txt_desc.grid_remove()
+        if editing:
+            txt_desc.insert("1.0", task.description or "")
 
         def toggle_desc():
             if desc_open.get() == 1:
@@ -221,12 +284,14 @@ class TasksTab:
                 btn_desc.configure(text="Добавить описание")
 
         btn_desc = ctk.CTkButton(
-            desc_frame, text="Добавить описание",
+            desc_frame, text="Скрыть описание" if desc_open.get() == 1 else "Добавить описание",
             command=lambda: (desc_open.set(1 - desc_open.get()), toggle_desc())
         )
         btn_desc.grid(row=0, column=0, sticky="ew", padx=8, pady=8)
 
-        # Subtasks (compact)
+        if desc_open.get() == 0:
+            txt_desc.grid_remove()
+
         subt_frame = ctk.CTkFrame(body)
         subt_frame.grid(row=5, column=0, sticky="ew", pady=(0, 10))
         subt_frame.grid_columnconfigure(0, weight=1)
@@ -239,12 +304,12 @@ class TasksTab:
 
         subt_items = []
 
-        def add_subtask(text=""):
+        def add_subtask(text="", done=0):
             row = ctk.CTkFrame(subt_list)
             row.pack(fill="x", padx=4, pady=4)
             row.grid_columnconfigure(1, weight=1)
 
-            v = ctk.IntVar(value=0)
+            v = ctk.IntVar(value=int(done))
             ctk.CTkCheckBox(row, text="", variable=v).grid(row=0, column=0, padx=6, pady=6)
 
             e = ctk.CTkEntry(row, placeholder_text="Подзадача…")
@@ -254,17 +319,23 @@ class TasksTab:
 
             subt_items.append((v, e))
 
+        if editing:
+            try:
+                subtasks = json.loads(task.subtasks_json or "[]")
+                for item in subtasks:
+                    add_subtask(item.get("text", ""), item.get("done", 0))
+            except Exception:
+                pass
+
         ctk.CTkButton(subt_frame, text="➕ Добавить подзадачу", command=lambda: add_subtask("")).grid(
             row=2, column=0, sticky="ew", padx=8, pady=(0, 8)
         )
 
-        # enable/disable time + reminders when all-day
         def apply_time_state():
             state = "disabled" if all_day_var.get() == 1 else "normal"
             for w in (start_h, start_m, end_h, end_m):
                 w.configure(state=state)
 
-            # if all-day -> disable reminders and clear
             cb_state = "disabled" if all_day_var.get() == 1 else "normal"
             for child in rem_frame.winfo_children():
                 if isinstance(child, ctk.CTkCheckBox):
@@ -276,7 +347,6 @@ class TasksTab:
         chk_all_day.configure(command=apply_time_state)
         apply_time_state()
 
-        # Save
         def _save():
             title = (e_title.get() or "").strip()
             date_s = (date_var.get() or "").strip()
@@ -302,27 +372,35 @@ class TasksTab:
                     messagebox.showerror("TODO", "Время окончания должно быть позже времени начала.")
                     return
 
-            # subtasks json
             subt = []
             for v, e in subt_items:
                 text = (e.get() or "").strip()
                 if text:
                     subt.append({"text": text, "done": int(v.get())})
-            subt_json = json.dumps(subt, ensure_ascii=False)
+            subtasks_json = json.dumps(subt, ensure_ascii=False)
 
-            # reminders (multi-select)
             offsets = [code for code, v in rem_vars if v.get() == 1]
             remind_offsets_json = json.dumps(offsets, ensure_ascii=False)
 
             try:
-                self.store.create_task(
-                    title, date_s, t1, t2, tag, desc,
-                    subt_json=subt_json,
-                    remind_offsets_json=remind_offsets_json
-                )
-            except TypeError:
-                # если внезапно старый store
-                self.store.create_task(title, date_s, t1, t2, tag, desc)
+                if editing:
+                    self.store.update_task(
+                        task.id,
+                        title=title,
+                        date=date_s,
+                        time_start=t1,
+                        time_end=t2,
+                        tag=tag,
+                        description=desc,
+                        subtasks_json=subtasks_json,
+                        remind_offsets_json=remind_offsets_json,
+                    )
+                else:
+                    self.store.create_task(
+                        title, date_s, t1, t2, tag, desc,
+                        subtasks_json=subtasks_json,
+                        remind_offsets_json=remind_offsets_json
+                    )
             except Exception as e:
                 messagebox.showerror("TODO", str(e))
                 return
@@ -334,7 +412,6 @@ class TasksTab:
 
         ctk.CTkButton(body, text="Сохранить", command=_save).grid(row=6, column=0, sticky="ew", pady=(6, 0))
 
-    # ---------- Date picker ----------
     def _pick_date_dialog(self, host, date_var: ctk.StringVar):
         win = ctk.CTkToplevel(host)
         win.title("Выбор даты")
@@ -423,7 +500,7 @@ class TasksTab:
             md = get_month_date()
             lbl.configure(text=f"{RU_MONTHS[md.month - 1]} {md.year}")
 
-            start = md - timedelta(days=md.weekday())  # monday
+            start = md - timedelta(days=md.weekday())
 
             cur = start
             r = 1

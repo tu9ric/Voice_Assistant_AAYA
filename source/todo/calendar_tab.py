@@ -19,6 +19,10 @@ def _minutes(hm: str) -> int:
     return h * 60 + m
 
 
+def _ui_date(d: ddate) -> str:
+    return d.strftime("%d-%m-%Y")
+
+
 class CalendarTab:
     def __init__(self, parent, store):
         self.parent = parent
@@ -30,7 +34,6 @@ class CalendarTab:
         self.view = "Месяц"
         self.selected_date = ddate.today()
 
-        # --- top bar ---
         top = ctk.CTkFrame(self.parent)
         top.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
         top.grid_columnconfigure(2, weight=1)
@@ -46,7 +49,7 @@ class CalendarTab:
         self.btn_prev = ctk.CTkButton(top, text="◀", width=55, command=self._prev)
         self.btn_prev.grid(row=0, column=1, padx=(0, 8), pady=8, sticky="w")
 
-        self.lbl_date = ctk.CTkLabel(top, text=str(self.selected_date))
+        self.lbl_date = ctk.CTkLabel(top, text=_ui_date(self.selected_date))
         self.lbl_date.grid(row=0, column=2, padx=8, pady=8, sticky="w")
 
         self.btn_next = ctk.CTkButton(top, text="▶", width=55, command=self._next)
@@ -55,7 +58,6 @@ class CalendarTab:
         self.btn_pick = ctk.CTkButton(top, text="📅 Выбрать дату", width=160, command=self._open_date_picker)
         self.btn_pick.grid(row=0, column=4, padx=8, pady=8, sticky="e")
 
-        # --- content area ---
         self.content = ctk.CTkFrame(self.parent)
         self.content.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.content.grid_columnconfigure(0, weight=1)
@@ -64,7 +66,6 @@ class CalendarTab:
         self._rerender_scheduled = False
         self.refresh()
 
-    # ---------- Navigation ----------
     def _on_view_changed(self, v: str):
         self.view = v
         self.refresh()
@@ -98,7 +99,6 @@ class CalendarTab:
             self.selected_date += timedelta(days=1)
         self.refresh()
 
-    # ---------- Date picker ----------
     def _open_date_picker(self):
         win = ctk.CTkToplevel(self.parent.winfo_toplevel())
         win.title("Выбор даты")
@@ -185,7 +185,7 @@ class CalendarTab:
             lbl.configure(text=f"{RU_MONTHS[md.month - 1]} {md.year}")
 
             first = md
-            start = first - timedelta(days=first.weekday())  # понедельник
+            start = first - timedelta(days=first.weekday())
 
             cur = start
             r = 1
@@ -205,9 +205,8 @@ class CalendarTab:
         month_menu.configure(command=lambda _: build_grid())
         build_grid()
 
-    # ---------- Public refresh ----------
     def refresh(self):
-        self.lbl_date.configure(text=str(self.selected_date))
+        self.lbl_date.configure(text=_ui_date(self.selected_date))
 
         for child in self.content.winfo_children():
             child.destroy()
@@ -218,7 +217,6 @@ class CalendarTab:
             days = 7 if self.view == "Неделя" else (3 if self.view == "3 дня" else 1)
             self._render_agenda_view(days)
 
-    # ---------- Month view ----------
     def _render_month_view(self):
         frame = ctk.CTkFrame(self.content)
         frame.grid(row=0, column=0, sticky="nsew")
@@ -229,7 +227,7 @@ class CalendarTab:
 
         y, m = self.selected_date.year, self.selected_date.month
         first = ddate(y, m, 1)
-        start = first - timedelta(days=first.weekday())  # с понедельника
+        start = first - timedelta(days=first.weekday())
 
         for i, w in enumerate(RU_WEEKDAY_SHORT):
             ctk.CTkLabel(frame, text=w).grid(row=0, column=i, pady=(6, 6))
@@ -278,7 +276,6 @@ class CalendarTab:
         self.view = "День"
         self.refresh()
 
-    # ---------- Week/Day agenda view ----------
     def _render_agenda_view(self, days_count: int):
         wrapper = ctk.CTkFrame(self.content)
         wrapper.grid(row=0, column=0, sticky="nsew")
@@ -301,19 +298,16 @@ class CalendarTab:
 
         inner.bind("<Configure>", _on_config)
 
-        # параметры
         hour_h = 56
         all_day_h = 28
         time_col_w = 70
 
-        # start day
         start_day = self.selected_date
         if days_count > 1:
             start_day = self.selected_date - timedelta(days=self.selected_date.weekday())
 
         day_list = [start_day + timedelta(days=i) for i in range(days_count)]
 
-        # ---------- header ----------
         header = ctk.CTkFrame(inner)
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=0)
@@ -324,11 +318,10 @@ class CalendarTab:
 
         for i, day in enumerate(day_list):
             wd = RU_WEEKDAY_SHORT[day.weekday()]
-            ctk.CTkLabel(header, text=f"{wd} {day.day:02d}.{day.month:02d}").grid(
+            ctk.CTkLabel(header, text=f"{wd} {day.strftime('%d-%m-%Y')}").grid(
                 row=0, column=i + 1, padx=6, pady=6, sticky="w"
             )
 
-        # ---------- body (time col + days) ----------
         body_wrap = ctk.CTkFrame(inner)
         body_wrap.grid(row=1, column=0, sticky="nsew")
         body_wrap.grid_columnconfigure(1, weight=1)
@@ -343,20 +336,17 @@ class CalendarTab:
         days_container.grid_columnconfigure(0, weight=1)
         days_container.grid_rowconfigure(1, weight=1)
 
-        # all-day row
         all_day_row = ctk.CTkFrame(days_container, height=all_day_h)
         all_day_row.grid(row=0, column=0, sticky="ew")
         for i in range(days_count):
             all_day_row.grid_columnconfigure(i, weight=1)
         all_day_row.grid_propagate(False)
 
-        # hours grid
         days_grid = ctk.CTkFrame(days_container)
         days_grid.grid(row=1, column=0, sticky="nsew")
         for i in range(days_count):
             days_grid.grid_columnconfigure(i, weight=1)
 
-        # time column: spacer + hours
         spacer = ctk.CTkLabel(time_col, text="", height=all_day_h)
         spacer.grid(row=0, column=0, sticky="ew")
 
@@ -366,13 +356,11 @@ class CalendarTab:
                 row=hour + 1, column=0, padx=8, sticky="ne"
             )
 
-        # all-day cells
         for i in range(days_count):
             cell = ctk.CTkFrame(all_day_row, height=all_day_h)
             cell.grid(row=0, column=i, sticky="nsew", padx=2, pady=1)
             cell.grid_propagate(False)
 
-        # hour cells
         for hour in range(24):
             days_grid.grid_rowconfigure(hour, minsize=hour_h)
             for i in range(days_count):
@@ -380,24 +368,19 @@ class CalendarTab:
                 cell.grid(row=hour, column=i, sticky="nsew", padx=2, pady=1)
                 cell.grid_propagate(False)
 
-        # overlay only on days_grid
         overlay = ctk.CTkFrame(days_grid, fg_color="transparent")
         overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
-        # tasks
         tasks_by_day = {d.isoformat(): self.store.list_tasks(date=d.isoformat(), include_done=True) for d in day_list}
 
-        # all-day render
         for i, day in enumerate(day_list):
             tasks = tasks_by_day[day.isoformat()]
-            all_day = [t for t in tasks if not getattr(t, "time_start", None)]
+            all_day = [t for t in tasks if not getattr(t, "time_start", None) and int(getattr(t, "done", 0)) == 0]
             if all_day:
                 txt = " • ".join([t.title for t in all_day[:2]]) + ("…" if len(all_day) > 2 else "")
                 badge = ctk.CTkLabel(all_day_row, text=txt)
                 badge.grid(row=0, column=i, sticky="ew", padx=6, pady=2)
 
-        # --- IMPORTANT: иногда при первом рендере ширина сетки = 1, и блоки "не видны".
-        # Перерисуем после layout, 1 раз.
         days_grid.update_idletasks()
         total_w = max(days_grid.winfo_width(), days_container.winfo_width() - 4, 300)
 
@@ -408,10 +391,12 @@ class CalendarTab:
 
         day_w = total_w / max(days_count, 1)
 
-        # timed blocks
         for i, day in enumerate(day_list):
             tasks = tasks_by_day[day.isoformat()]
             for t in tasks:
+                if int(getattr(t, "done", 0)) == 1:
+                    continue
+
                 ts = getattr(t, "time_start", None)
                 if not ts:
                     continue
