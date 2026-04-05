@@ -24,6 +24,8 @@ class Note:
     created_at: str
 
 
+
+# Добавил хэширование с солью
 @dataclass
 class User:
     id: int
@@ -31,3 +33,6 @@ class User:
     email: str
     password_hash: str
     created_at: str
+    password_salt: Optional[str] = None
+    password_iterations: Optional[int] = None
+    password_scheme: Optional[str] = None

@@ -1,9 +1,9 @@
 import customtkinter as ctk
 import ctypes
 
-from .todo_store import PersonalStore
-from .todo_gui import TodoAppGUI
-from .todo_api import TodoAPI
+from todo.todo_store import PersonalStore
+from todo.todo_gui import TodoAppGUI
+from todo.todo_api import TodoAPI
 
 def main():
     # тема (можно менять потом)

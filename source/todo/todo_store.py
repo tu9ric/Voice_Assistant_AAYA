@@ -1,7 +1,12 @@
-import hashlib
 import sqlite3
 from typing import List, Optional
 from datetime import datetime
+
+# импорты для хэширования
+import base64
+import hashlib
+import hmac
+import secrets
 
 from .paths import personal_db_path
 from .models import Task, Note, User
@@ -51,8 +56,11 @@ class PersonalStore:
                 name TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                password_salt TEXT,
+                password_iterations INTEGER,
+                password_scheme TEXT NOT NULL DEFAULT 'sha256_legacy',
                 created_at TEXT NOT NULL
-            );
+            )
             """)
 
             con.execute("""
@@ -66,6 +74,8 @@ class PersonalStore:
             con.execute("INSERT OR IGNORE INTO session(id, user_id) VALUES (1, NULL)")
             self._migrate(con)
 
+
+    # миграции баз данных
     def _migrate(self, con: sqlite3.Connection) -> None:
         cur = con.cursor()
 
@@ -89,11 +99,61 @@ class PersonalStore:
         except Exception:
             pass
 
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN password_salt TEXT")
+        except Exception:
+            pass
+
+        try: 
+            cur.execute("ALTER TABLE users ADD COLUMN password_iterations INTEGER")
+        except Exception:
+            pass
+
+        try:
+            cur.execute("ALTER TABLE users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT 'sha256_legacy")
+        except Exception:
+            pass
+
         con.commit()
 
     # -------- Helpers --------
-    def _hash_password(self, password: str) -> str:
+
+    # хэширование пароля с солью
+    # ------------------------ ЗДЕСЬ БУДЕТ КОД ---------------------------
+    PBKDF2_ITERATIONS = 300_000
+    PBKDF2_SCHEME = "pbkdf2_sha256"
+
+    def _hash_password_legacy(self, password: str) -> str:
         return hashlib.sha256((password or "").encode("utf-8")).hexdigest()
+
+    def _make_salt(self) -> str:
+        return base64.b64encode(secrets.token_bytes(16)).decode("ascii")
+    
+    def _hash_password_pbkdf2(
+        self,
+        password: str,
+        salt_b64: str,
+        iterations: int = PBKDF2_ITERATIONS,
+    ) -> str:
+        salt = base64.b64decode(salt_b64.encode("ascii"))
+        dk = hashlib.pbkdf2_hmac(
+            "sha256",
+            (password or "").encode("utf-8"),
+            salt,
+            iterations,
+        )
+        return base64.b64encode(dk).decode("ascii")
+
+    def _verify_password_pbkdf2(
+        self,
+        password: str,
+        stored_hash: str,
+        salt_b64: str,
+        iterations: int,
+    ) -> bool:
+        calc_hash = self._hash_password_pbkdf2(password, salt_b64, iterations)
+        return hmac.compare_digest(calc_hash, stored_hash)
+
 
     def _require_user_id(self) -> int:
         user = self.get_current_user()
@@ -324,28 +384,56 @@ class PersonalStore:
             raise ValueError("Пароль должен быть не короче 4 символов.")
 
         created = datetime.now().isoformat(timespec="seconds")
-        password_hash = self._hash_password(password)
+
+        # хэширование пароля
+        salt = self._make_salt()
+        iterations = self.PBKDF2_ITERATIONS
+        scheme = self.PBKDF2_SCHEME
+        password_hash = self._hash_password_pbkdf2(password, salt, iterations)
 
         try:
             with self._conn() as con:
                 cur = con.execute(
-                    "INSERT INTO users(name, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                    (name, email, password_hash, created),
+                    """
+                    INSERT INTO users(
+                        name, email, password_hash, 
+                        password_salt, password_iterations, password_scheme, created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (name, email, password_hash, salt, iterations, scheme, created),
                 )
                 user_id = int(cur.lastrowid)
                 con.execute("UPDATE session SET user_id=? WHERE id=1", (user_id,))
         except sqlite3.IntegrityError:
             raise ValueError("Пользователь с таким email уже существует.")
 
-        return User(user_id, name, email, password_hash, created)
+        return User(
+            id=user_id, 
+            name=name, 
+            email=email, 
+            password_hash=password_hash, 
+            created_at=created,
+            password_salt=salt,
+            password_iterations=iterations,
+            password_scheme=scheme,
+        )
 
+
+    # логин пользователя
     def login_user(self, email: str, password: str) -> User:
         email = (email or "").strip().lower()
-        password_hash = self._hash_password(password or "")
+        password = password or ""
 
         with self._conn() as con:
             row = con.execute(
-                "SELECT id, name, email, password_hash, created_at FROM users WHERE email=?",
+                """
+                SELECT 
+                    id, name, email, password_hash, created_at,
+                    password_salt, password_iterations, password_scheme 
+                FROM users 
+                WHERE email=?"
+                """,
                 (email,),
             ).fetchone()
 
@@ -353,12 +441,47 @@ class PersonalStore:
                 raise ValueError("Пользователь не найден.")
 
             user = User(*row)
-            if user.password_hash != password_hash:
-                raise ValueError("Неверный пароль.")
 
+            if user.password_scheme == self.PBKDF2_SCHEME:
+                ok = self._verify_password_pbkdf2(
+                    password=password,
+                    stored_hash=user.password_hash,
+                    salt_b64=user.password_salt,
+                    iterations=user.password_iterations or self.PBKDF2_ITERATIONS,
+                )
+                if not ok:
+                    raise ValueError("Неверный пароль.")
+
+            elif user.password_scheme in (None, "", "sha256_legacy"):
+                legacy_hash = self._hash_password_legacy(password)
+                if not hmac.compare_digest(legacy_hash, user.password_hash): 
+                    raise ValueError("Неверный пароль.")
+                
+                new_salt = self._make_salt()
+                new_iterations = self.PBKDF2_ITERATIONS
+                new_hash = self._hash_password_pbkdf2(password, new_salt, new_iterations)
+
+                con.execute(
+                    """
+                    UPDATE users
+                    SET password_hash=?,
+                        password_salt=?,
+                        password_iterations=?,
+                        password_scheme=?
+                    WHERE id=?
+                    """,
+                    (new_hash, new_salt, new_iterations, self.PBKDF2_SCHEME, user.id),
+                )
+
+                user.password_hash = new_hash
+                user.password_salt = new_salt
+                user.password_iterations = new_iterations
+                user.password_scheme = self.PBKDF2_SCHEME
+            else:
+                raise ValueError("Неизвестная схема хранения пароля.")
+            
             con.execute("UPDATE session SET user_id=? WHERE id=1", (user.id,))
-
-        return user
+            return user
 
     def logout_user(self) -> None:
         with self._conn() as con:
@@ -366,13 +489,18 @@ class PersonalStore:
 
     def get_current_user(self) -> Optional[User]:
         with self._conn() as con:
-            row = con.execute("""
-                SELECT u.id, u.name, u.email, u.password_hash, u.created_at
+            row = con.execute(
+                """
+                SELECT 
+                    u.id, u.name, u.email, u.password_hash, u.created_at,
+                    u.password_salt, u.password_iterations, u.password_scheme
                 FROM session s
                 LEFT JOIN users u ON u.id = s.user_id
                 WHERE s.id = 1
-            """).fetchone()
+                """
+            ).fetchone()
 
         if not row or row[0] is None:
             return None
+        
         return User(*row)
