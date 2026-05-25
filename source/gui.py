@@ -302,7 +302,8 @@ class AssistantGUI:
         self._log(f"ОС: {self.ctx.os_name.capitalize()}")
 
         # close: hide to tray
-        self.root.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
+        if hasattr(self.root, "protocol"):
+            self.root.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
 
     # ---------- tray-safe ----------
     def _tray_open_safe(self):

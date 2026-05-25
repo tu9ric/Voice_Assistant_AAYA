@@ -110,7 +110,7 @@ class PersonalStore:
             pass
 
         try:
-            cur.execute("ALTER TABLE users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT 'sha256_legacy")
+            cur.execute("ALTER TABLE users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT 'sha256_legacy'")
         except Exception:
             pass
 
