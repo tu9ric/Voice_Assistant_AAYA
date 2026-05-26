@@ -2,7 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 
 from .todo_store import PersonalStore
-from .calendar_tab import CalendarTab
+from .calendar.calendar_tab import CalendarTab
 from .notes_tab import NotesTab
 from .tasks_tab import TasksTab
 

@@ -432,7 +432,7 @@ class PersonalStore:
                     id, name, email, password_hash, created_at,
                     password_salt, password_iterations, password_scheme 
                 FROM users 
-                WHERE email=?"
+                WHERE email=?
                 """,
                 (email,),
             ).fetchone()
