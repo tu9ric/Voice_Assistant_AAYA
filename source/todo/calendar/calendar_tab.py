@@ -1,6 +1,7 @@
 import customtkinter as ctk
 
 from datetime import date as ddate, timedelta
+from .task_details import TaskDetailsWindow
 
 from .agenda_view import AgendaView
 from .month_view import MonthView
@@ -222,21 +223,11 @@ class CalendarTab:
 
     def _open_task(self, task):
 
-        try:
-
-            view = AgendaView(
-                self.content,
-                self.store,
-                self.selected_date,
-                1
-            )
-
-            view._open_task(task)
-
-        except Exception as e:
-
-            print(e)
-
+        TaskDetailsWindow(
+            self.parent,
+            task,
+            self.store
+        )
     # =========================================================
     # REFRESH
     # =========================================================
@@ -259,7 +250,8 @@ class CalendarTab:
                 self.content,
                 self.store,
                 self.selected_date,
-                self._open_task
+                self._open_task,
+                self._open_day
             )
 
         # ================= AGENDA =================
@@ -278,3 +270,13 @@ class CalendarTab:
                 self.selected_date,
                 days
             )
+
+    def _open_day(self, day):
+
+        self.selected_date = day
+
+        self.view = "День"
+
+        self.view_menu.set("День")
+
+        self.refresh()
