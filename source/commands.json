@@ -179,5 +179,29 @@
   "open_steam": {
     "phrases": ["открой стим", "steam", "стим"],
     "action": "actions.apps.open_steam"
+  },
+  "create_todo_task": {
+    "phrases": [
+      "создай задачу",
+      "добавь задачу",
+      "новая задача",
+      "запиши задачу",
+      "поставь задачу",
+      "создать задачу",
+      "добавить задачу"
+    ],
+    "action": "actions.todo_actions.create_task"
+  },
+  "create_todo_note": {
+    "phrases": [
+      "создай заметку",
+      "добавь заметку",
+      "новая заметка",
+      "запиши заметку",
+      "создать заметку",
+      "добавить заметку"
+    ],
+    "action": "actions.todo_actions.create_note"
   }
+
 }
