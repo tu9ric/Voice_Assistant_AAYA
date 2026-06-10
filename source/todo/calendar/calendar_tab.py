@@ -10,20 +10,38 @@ from .date_picker import open_date_picker
 
 class CalendarTab:
 
-    def __init__(self, parent, store):
+    def __init__(
+        self,
+        parent,
+        store,
+        on_tasks_changed=None
+    ):
 
         self.parent = parent
         self.store = store
+        self.on_tasks_changed = on_tasks_changed
 
         self.view = "Месяц"
         self.selected_date = ddate.today()
 
-        self.parent.grid_columnconfigure(0, weight=1)
-        self.parent.grid_rowconfigure(1, weight=1)
+        self.parent.grid_columnconfigure(
+            0,
+            weight=1
+        )
 
-        # ================= TOP =================
+        self.parent.grid_rowconfigure(
+            1,
+            weight=1
+        )
 
-        top = ctk.CTkFrame(parent)
+        # =================================================
+        # TOP PANEL
+        # =================================================
+
+        top = ctk.CTkFrame(
+            parent
+        )
+
         top.grid(
             row=0,
             column=0,
@@ -32,7 +50,10 @@ class CalendarTab:
             pady=10
         )
 
-        top.grid_columnconfigure(2, weight=1)
+        top.grid_columnconfigure(
+            2,
+            weight=1
+        )
 
         self.view_menu = ctk.CTkOptionMenu(
             top,
@@ -46,7 +67,9 @@ class CalendarTab:
             width=140
         )
 
-        self.view_menu.set(self.view)
+        self.view_menu.set(
+            self.view
+        )
 
         self.view_menu.grid(
             row=0,
@@ -115,7 +138,9 @@ class CalendarTab:
             sticky="e"
         )
 
-        # ================= CONTENT =================
+        # =================================================
+        # CONTENT
+        # =================================================
 
         self.content = ctk.CTkFrame(
             parent,
@@ -130,44 +155,67 @@ class CalendarTab:
             pady=(0, 10)
         )
 
-        self.content.grid_columnconfigure(0, weight=1)
-        self.content.grid_rowconfigure(0, weight=1)
+        self.content.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.content.grid_rowconfigure(
+            0,
+            weight=1
+        )
 
         self.refresh()
 
-    # =========================================================
-    # VIEW
-    # =========================================================
+    # =====================================================
+    # CHANGE VIEW
+    # =====================================================
 
-    def _change_view(self, value):
+    def _change_view(
+        self,
+        value
+    ):
 
         self.view = value
         self.refresh()
 
-    # =========================================================
+    # =====================================================
     # NAVIGATION
-    # =========================================================
+    # =====================================================
 
     def _prev(self):
 
         if self.view == "Месяц":
 
-            first = self.selected_date.replace(day=1)
-            prev_last = first - timedelta(days=1)
+            first = self.selected_date.replace(
+                day=1
+            )
 
-            self.selected_date = prev_last.replace(day=1)
+            prev_last = first - timedelta(
+                days=1
+            )
+
+            self.selected_date = prev_last.replace(
+                day=1
+            )
 
         elif self.view == "Неделя":
 
-            self.selected_date -= timedelta(days=7)
+            self.selected_date -= timedelta(
+                days=7
+            )
 
         elif self.view == "3 дня":
 
-            self.selected_date -= timedelta(days=3)
+            self.selected_date -= timedelta(
+                days=3
+            )
 
         else:
 
-            self.selected_date -= timedelta(days=1)
+            self.selected_date -= timedelta(
+                days=1
+            )
 
         self.refresh()
 
@@ -179,70 +227,91 @@ class CalendarTab:
             m = self.selected_date.month
 
             if m == 12:
+
                 y += 1
                 m = 1
+
             else:
+
                 m += 1
 
-            self.selected_date = ddate(y, m, 1)
+            self.selected_date = ddate(
+                y,
+                m,
+                1
+            )
 
         elif self.view == "Неделя":
 
-            self.selected_date += timedelta(days=7)
+            self.selected_date += timedelta(
+                days=7
+            )
 
         elif self.view == "3 дня":
 
-            self.selected_date += timedelta(days=3)
+            self.selected_date += timedelta(
+                days=3
+            )
 
         else:
 
-            self.selected_date += timedelta(days=1)
+            self.selected_date += timedelta(
+                days=1
+            )
 
         self.refresh()
 
-    # =========================================================
+    # =====================================================
     # DATE PICKER
-    # =========================================================
+    # =====================================================
 
     def _open_date_picker(self):
 
         open_date_picker(
-            self.parent,
+            self.parent.winfo_toplevel(),
             self.selected_date,
             self._set_date
         )
 
-    def _set_date(self, new_date):
+    def _set_date(
+        self,
+        new_date
+    ):
 
         self.selected_date = new_date
         self.refresh()
 
-    # =========================================================
-    # TASK OPEN
-    # =========================================================
+    # =====================================================
+    # OPEN TASK DETAILS
+    # =====================================================
 
-    def _open_task(self, task):
+    def _open_task(
+        self,
+        task
+    ):
 
         TaskDetailsWindow(
-            self.parent,
+            self.parent.winfo_toplevel(),
             task,
-            self.store
+            self.store,
+            self.refresh
         )
-    # =========================================================
+
+    # =====================================================
     # REFRESH
-    # =========================================================
+    # =====================================================
 
     def refresh(self):
 
         self.lbl_date.configure(
-            text=self.selected_date.strftime("%d-%m-%Y")
+            text=self.selected_date.strftime(
+                "%d-%m-%Y"
+            )
         )
 
         for child in self.content.winfo_children():
 
             child.destroy()
-
-        # ================= MONTH =================
 
         if self.view == "Месяц":
 
@@ -253,8 +322,6 @@ class CalendarTab:
                 self._open_task,
                 self._open_day
             )
-
-        # ================= AGENDA =================
 
         else:
 
@@ -268,15 +335,25 @@ class CalendarTab:
                 self.content,
                 self.store,
                 self.selected_date,
-                days
+                days,
+                self.refresh
             )
 
-    def _open_day(self, day):
+    # =====================================================
+    # OPEN DAY
+    # =====================================================
+
+    def _open_day(
+        self,
+        day
+    ):
 
         self.selected_date = day
 
         self.view = "День"
 
-        self.view_menu.set("День")
+        self.view_menu.set(
+            "День"
+        )
 
         self.refresh()

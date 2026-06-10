@@ -1,5 +1,4 @@
 import customtkinter as ctk
-import json
 
 from datetime import timedelta
 from .task_details import TaskDetailsWindow
@@ -16,13 +15,15 @@ class AgendaView:
         parent,
         store,
         selected_date,
-        days_count
+        days_count,
+        on_refresh=None
     ):
 
         self.parent = parent
         self.store = store
         self.selected_date = selected_date
         self.days_count = days_count
+        self.on_refresh = on_refresh
 
         self.hour_h = 80
         self.day_w = 260
@@ -45,8 +46,6 @@ class AgendaView:
             pady=8
         )
 
-        # ================= DAYS =================
-
         start_day = self.selected_date
 
         if self.days_count > 1:
@@ -59,8 +58,6 @@ class AgendaView:
             start_day + timedelta(days=i)
             for i in range(self.days_count)
         ]
-
-        # ================= WIDTH =================
 
         content_w = (
             self.timebar_w +
@@ -83,8 +80,6 @@ class AgendaView:
         total_w = content_w + offset_x
 
         total_h = 40 + 24 * self.hour_h
-
-        # ================= HEADER =================
 
         header_canvas = ctk.CTkCanvas(
             root,
@@ -144,9 +139,9 @@ class AgendaView:
                 font=("Arial", 18, "bold")
             )
 
-        # ================= BODY =================
-
-        body = ctk.CTkFrame(root)
+        body = ctk.CTkFrame(
+            root
+        )
 
         body.pack(
             fill="both",
@@ -167,14 +162,10 @@ class AgendaView:
             expand=True
         )
 
-        def sync_scroll(*args):
-
-            canvas.yview(*args)
-
         scrollbar = ctk.CTkScrollbar(
             body,
             orientation="vertical",
-            command=sync_scroll
+            command=canvas.yview
         )
 
         scrollbar.pack(
@@ -194,8 +185,6 @@ class AgendaView:
                 total_h
             )
         )
-
-        # ================= GRID =================
 
         for hour in range(24):
 
@@ -217,8 +206,6 @@ class AgendaView:
                 fill="#353535"
             )
 
-        # ================= VERTICAL GRID =================
-
         for i in range(len(days) + 1):
 
             x = (
@@ -234,8 +221,6 @@ class AgendaView:
                 total_h,
                 fill="#353535"
             )
-
-        # ================= TASKS =================
 
         for day_index, day in enumerate(days):
 
@@ -287,16 +272,17 @@ class AgendaView:
 
                 y = int(
                     40 +
-                    (start_min / 60)
-                    * self.hour_h
+                    (start_min / 60) * self.hour_h
                 )
 
                 h = int(
-                    (duration / 60)
-                    * self.hour_h
+                    (duration / 60) * self.hour_h
                 )
 
-                h = max(48, h)
+                h = max(
+                    48,
+                    h
+                )
 
                 x = (
                     offset_x +
@@ -315,7 +301,9 @@ class AgendaView:
                     height=h
                 )
 
-                card.pack_propagate(False)
+                card.pack_propagate(
+                    False
+                )
 
                 title = (
                     f"{ts} {t.title}"
@@ -323,7 +311,11 @@ class AgendaView:
                     else t.title
                 )
 
-                if getattr(t, "tag", None):
+                if getattr(
+                    t,
+                    "tag",
+                    None
+                ):
 
                     title += f" [{t.tag}]"
 
@@ -368,10 +360,14 @@ class AgendaView:
                     self._open_task(task)
                 )
 
-    def _open_task(self, task):
+    def _open_task(
+        self,
+        task
+    ):
 
         TaskDetailsWindow(
-            self.parent,
+            self.parent.winfo_toplevel(),
             task,
-            self.store
+            self.store,
+            self.on_refresh
         )
