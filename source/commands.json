@@ -1,186 +1,650 @@
 {
+  "greet": {
+    "category": "Общение",
+    "title": "Поздороваться",
+    "description": "Ассистент отвечает приветствием.",
+    "examples": [
+      "привет",
+      "здравствуй",
+      "доброе утро"
+    ],
+    "phrases": [
+      "привет",
+      "привет аая",
+      "здравствуй",
+      "здравствуй аая",
+      "доброе утро",
+      "добрый день",
+      "добрый вечер",
+      "хай",
+      "hello",
+      "как дела",
+      "ты тут",
+      "ты здесь",
+      "аая ты тут",
+      "ая ты здесь"
+    ],
+    "action": "actions.fun.greet"
+  },
+
+  "bye": {
+    "category": "Общение",
+    "title": "Завершить работу",
+    "description": "Закрывает ассистента.",
+    "examples": [
+      "пока",
+      "выключись",
+      "закройся"
+    ],
+    "phrases": [
+      "пока",
+      "до свидания",
+      "выключись",
+      "закройся",
+      "заверши работу",
+      "закрой приложение",
+      "остановись",
+      "стоп",
+      "выход",
+      "exit",
+      "bye"
+    ],
+    "action": "actions.fun.goodbye"
+  },
+
+  "tell_time": {
+    "category": "Система",
+    "title": "Сказать время",
+    "description": "Показывает текущее время.",
+    "examples": [
+      "который час",
+      "сколько времени"
+    ],
+    "phrases": [
+      "который час",
+      "сколько времени",
+      "скажи время",
+      "текущее время",
+      "какое сейчас время",
+      "время сейчас",
+      "покажи время",
+      "сколько щас времени",
+      "сколько сейчас времени"
+    ],
+    "action": "actions.system.tell_time"
+  },
+
+  "tell_date": {
+    "category": "Система",
+    "title": "Сказать дату",
+    "description": "Показывает сегодняшнюю дату.",
+    "examples": [
+      "какое сегодня число",
+      "какая дата"
+    ],
+    "phrases": [
+      "какое сегодня число",
+      "какая сегодня дата",
+      "какая дата",
+      "скажи дату",
+      "сегодняшняя дата",
+      "покажи дату",
+      "дата сегодня",
+      "число сегодня"
+    ],
+    "action": "actions.system.tell_date"
+  },
+
+  "open_notepad": {
+    "category": "Система",
+    "title": "Открыть блокнот",
+    "description": "Открывает стандартный текстовый редактор.",
+    "examples": [
+      "открой блокнот",
+      "запусти блокнот"
+    ],
+    "phrases": [
+      "открой блокнот",
+      "запусти блокнот",
+      "включи блокнот",
+      "открой текстовый редактор",
+      "запусти текстовый редактор",
+      "создай текстовый файл"
+    ],
+    "action": "actions.system.open_notepad"
+  },
+
+  "shutdown": {
+    "category": "Система",
+    "title": "Выключить компьютер",
+    "description": "Запускает выключение компьютера.",
+    "examples": [
+      "выключи компьютер"
+    ],
+    "phrases": [
+      "выключи компьютер",
+      "выключи пк",
+      "отключи компьютер",
+      "заверши работу компьютера",
+      "выключение компьютера",
+      "shutdown"
+    ],
+    "action": "actions.system.shutdown"
+  },
+
+  "open_chrome": {
+    "category": "Приложения",
+    "title": "Открыть Chrome",
+    "description": "Запускает браузер Google Chrome.",
+    "examples": [
+      "открой хром",
+      "запусти браузер"
+    ],
+    "phrases": [
+      "открой chrome",
+      "открой хром",
+      "запусти chrome",
+      "запусти хром",
+      "открой браузер",
+      "запусти браузер",
+      "включи браузер",
+      "браузер открой"
+    ],
+    "action": "actions.apps.open_chrome"
+  },
+
+  "open_edge": {
+    "category": "Приложения",
+    "title": "Открыть Edge",
+    "description": "Запускает Microsoft Edge.",
+    "examples": [
+      "открой edge"
+    ],
+    "phrases": [
+      "открой edge",
+      "открой эдж",
+      "запусти edge",
+      "запусти эдж",
+      "открой microsoft edge",
+      "запусти microsoft edge"
+    ],
+    "action": "actions.apps.open_edge"
+  },
+
+  "open_telegram": {
+    "category": "Приложения",
+    "title": "Открыть Telegram",
+    "description": "Запускает Telegram или web-версию.",
+    "examples": [
+      "открой телеграм"
+    ],
+    "phrases": [
+      "открой телеграм",
+      "открой telegram",
+      "запусти телеграм",
+      "запусти telegram",
+      "включи телеграм",
+      "телеграм открой",
+      "перейди в телеграм"
+    ],
+    "action": "actions.apps.open_telegram"
+  },
+
+  "open_discord": {
+    "category": "Приложения",
+    "title": "Открыть Discord",
+    "description": "Запускает Discord или web-версию.",
+    "examples": [
+      "открой дискорд"
+    ],
+    "phrases": [
+      "открой дискорд",
+      "открой discord",
+      "запусти дискорд",
+      "запусти discord",
+      "включи дискорд",
+      "дискорд открой"
+    ],
+    "action": "actions.apps.open_discord"
+  },
+
+  "open_steam": {
+    "category": "Приложения",
+    "title": "Открыть Steam",
+    "description": "Запускает Steam.",
+    "examples": [
+      "открой стим"
+    ],
+    "phrases": [
+      "открой стим",
+      "открой steam",
+      "запусти стим",
+      "запусти steam",
+      "включи стим",
+      "стим открой"
+    ],
+    "action": "actions.apps.open_steam"
+  },
+
   "open_youtube": {
-    "phrases": ["открой ютуб", "включи ютуб", "youtube", "open youtube", "ютуб"],
+    "category": "Сайты",
+    "title": "Открыть YouTube",
+    "description": "Открывает YouTube в браузере.",
+    "examples": [
+      "открой ютуб"
+    ],
+    "phrases": [
+      "открой ютуб",
+      "открой youtube",
+      "запусти ютуб",
+      "зайди на ютуб",
+      "перейди на ютуб",
+      "включи ютуб",
+      "ютуб открой"
+    ],
     "action": "actions.sites.open_youtube"
   },
+
   "open_google": {
-    "phrases": ["открой гугл", "google", "гугл"],
+    "category": "Сайты",
+    "title": "Открыть Google",
+    "description": "Открывает главную страницу Google.",
+    "examples": [
+      "открой гугл"
+    ],
+    "phrases": [
+      "открой гугл",
+      "открой google",
+      "зайди в гугл",
+      "перейди в гугл",
+      "открой поисковик",
+      "гугл открой"
+    ],
     "action": "actions.sites.open_google"
   },
-  "open_vk": {
-    "phrases": ["открой вк", "вконтакте", "vk"],
-    "action": "actions.sites.open_vk"
-  },
+
   "open_yandex": {
-    "phrases": ["открой яндекс", "yandex", "яндекс"],
+    "category": "Сайты",
+    "title": "Открыть Яндекс",
+    "description": "Открывает Яндекс.",
+    "examples": [
+      "открой яндекс"
+    ],
+    "phrases": [
+      "открой яндекс",
+      "зайди в яндекс",
+      "перейди в яндекс",
+      "запусти яндекс",
+      "яндекс открой"
+    ],
     "action": "actions.sites.open_yandex"
   },
+
+  "open_vk": {
+    "category": "Сайты",
+    "title": "Открыть VK",
+    "description": "Открывает ВКонтакте.",
+    "examples": [
+      "открой вк"
+    ],
+    "phrases": [
+      "открой вк",
+      "открой vkontakte",
+      "открой вконтакте",
+      "зайди в вк",
+      "перейди в вк",
+      "вконтакте открой"
+    ],
+    "action": "actions.sites.open_vk"
+  },
+
   "open_github": {
-    "phrases": ["открой гитхаб", "github", "гитхаб"],
+    "category": "Сайты",
+    "title": "Открыть GitHub",
+    "description": "Открывает GitHub.",
+    "examples": [
+      "открой гитхаб"
+    ],
+    "phrases": [
+      "открой github",
+      "открой гитхаб",
+      "зайди на github",
+      "зайди на гитхаб",
+      "перейди на github",
+      "гитхаб открой"
+    ],
     "action": "actions.sites.open_github"
   },
 
   "open_mail": {
-    "phrases": ["открой почту", "почта", "gmail", "гмейл", "yandex mail", "яндекс почта"],
+    "category": "Сайты",
+    "title": "Открыть почту",
+    "description": "Открывает Gmail.",
+    "examples": [
+      "открой почту"
+    ],
+    "phrases": [
+      "открой почту",
+      "открой gmail",
+      "зайди в почту",
+      "проверь почту",
+      "почта",
+      "почту открой"
+    ],
     "action": "actions.sites.open_mail"
   },
-  "open_translate_site": {
-    "phrases": ["открой переводчик", "переводчик", "гугл переводчик", "яндекс переводчик"],
+
+  "open_translate": {
+    "category": "Сайты",
+    "title": "Открыть переводчик",
+    "description": "Открывает Google Translate.",
+    "examples": [
+      "открой переводчик"
+    ],
+    "phrases": [
+      "открой переводчик",
+      "запусти переводчик",
+      "гугл переводчик",
+      "google translate",
+      "переводчик открой"
+    ],
     "action": "actions.sites.open_translate"
   },
+
   "open_maps": {
-    "phrases": ["открой карты", "карты", "гугл карты", "яндекс карты", "maps"],
+    "category": "Сайты",
+    "title": "Открыть карты",
+    "description": "Открывает Google Maps.",
+    "examples": [
+      "открой карты"
+    ],
+    "phrases": [
+      "открой карты",
+      "открой карту",
+      "запусти карты",
+      "google maps",
+      "гугл карты",
+      "покажи карту",
+      "карты открой"
+    ],
     "action": "actions.sites.open_maps"
   },
+
   "open_weather": {
-    "phrases": ["открой погоду", "погода", "weather"],
+    "category": "Сайты",
+    "title": "Открыть погоду",
+    "description": "Открывает поиск погоды в браузере.",
+    "examples": [
+      "покажи погоду"
+    ],
+    "phrases": [
+      "погода",
+      "покажи погоду",
+      "открой погоду",
+      "какая погода",
+      "погода сегодня",
+      "прогноз погоды"
+    ],
     "action": "actions.sites.open_weather"
   },
+
   "open_news": {
-    "phrases": ["открой новости", "новости", "news"],
+    "category": "Сайты",
+    "title": "Открыть новости",
+    "description": "Открывает новости.",
+    "examples": [
+      "открой новости"
+    ],
+    "phrases": [
+      "открой новости",
+      "покажи новости",
+      "новости",
+      "свежие новости",
+      "последние новости",
+      "что нового"
+    ],
     "action": "actions.sites.open_news"
   },
+
   "open_wikipedia": {
-    "phrases": ["википедия", "открой википедию", "wikipedia"],
+    "category": "Сайты",
+    "title": "Открыть Википедию",
+    "description": "Открывает русскую Википедию.",
+    "examples": [
+      "открой википедию"
+    ],
+    "phrases": [
+      "открой википедию",
+      "открой wikipedia",
+      "зайди в википедию",
+      "википедия",
+      "wikipedia"
+    ],
     "action": "actions.sites.open_wikipedia"
-  },
-  "open_twitch": {
-    "phrases": ["твич", "twitch", "открой твич"],
-    "action": "actions.sites.open_twitch"
-  },
-  "open_reddit": {
-    "phrases": ["реддит", "reddit", "открой реддит"],
-    "action": "actions.sites.open_reddit"
   },
 
   "search_google": {
-    "phrases": ["найди в гугле", "поиск гугл", "загугли"],
+    "category": "Поиск",
+    "title": "Поиск в Google",
+    "description": "Ищет фразу в Google.",
+    "examples": [
+      "найди в гугле python",
+      "загугли расписание"
+    ],
+    "phrases": [
+      "найди в гугле",
+      "поищи в гугле",
+      "поиск в гугле",
+      "загугли",
+      "найди google",
+      "google поиск",
+      "найди информацию",
+      "поищи информацию",
+      "найди в интернете",
+      "поищи в интернете"
+    ],
     "action": "actions.sites.search_google"
   },
+
   "search_yandex": {
-    "phrases": ["найди в яндексе", "поиск яндекс", "заяндекси"],
+    "category": "Поиск",
+    "title": "Поиск в Яндексе",
+    "description": "Ищет фразу в Яндексе.",
+    "examples": [
+      "найди в яндексе погода"
+    ],
+    "phrases": [
+      "найди в яндексе",
+      "поищи в яндексе",
+      "поиск в яндексе",
+      "заяндекси",
+      "яндекс поиск"
+    ],
     "action": "actions.sites.search_yandex"
   },
 
-  "calculator": {
-    "phrases": ["посчитай", "вычисли", "калькулятор"],
+  "calculate": {
+    "category": "Инструменты",
+    "title": "Калькулятор",
+    "description": "Считает математические выражения.",
+    "examples": [
+      "посчитай 2 плюс 2",
+      "сколько будет 10 разделить на 2"
+    ],
+    "phrases": [
+      "посчитай",
+      "вычисли",
+      "сколько будет",
+      "реши пример",
+      "калькулятор",
+      "посчитай пример",
+      "вычисли пример",
+      "сосчитай",
+      "сколько получится",
+      "реши"
+    ],
     "action": "actions.calculator.calculate"
   },
+
   "translate": {
-    "phrases": ["переведи", "перевод"],
+    "category": "Инструменты",
+    "title": "Переводчик",
+    "description": "Переводит текст на английский.",
+    "examples": [
+      "переведи привет",
+      "перевод доброе утро"
+    ],
+    "phrases": [
+      "переведи",
+      "перевод",
+      "переведи текст",
+      "сделай перевод",
+      "переведи на английский",
+      "как будет по английски",
+      "как сказать по английски"
+    ],
     "action": "actions.translator.translate"
   },
 
-  "time": {
-    "phrases": ["который час", "сколько времени", "подскажи время", "время"],
-    "action": "actions.system.tell_time"
-  },
-  "date": {
-    "phrases": ["какое сегодня число", "какая сегодня дата", "какой сегодня день", "дата"],
-    "action": "actions.system.tell_date"
-  },
-
-  "notepad": {
-    "phrases": ["открой блокнот", "запусти блокнот", "notepad"],
-    "action": "actions.system.open_notepad"
-  },
-  "open_explorer": {
-    "phrases": ["открой проводник", "проводник", "explorer"],
-    "action": "actions.system.open_explorer"
-  },
-  "open_task_manager": {
-    "phrases": ["открой диспетчер задач", "диспетчер задач", "task manager"],
-    "action": "actions.system.open_task_manager"
-  },
-  "open_settings": {
-    "phrases": ["открой настройки", "параметры", "настройки windows"],
-    "action": "actions.system.open_settings"
-  },
-  "open_cmd": {
-    "phrases": ["открой cmd", "командная строка", "cmd"],
-    "action": "actions.system.open_cmd"
-  },
-  "open_powershell": {
-    "phrases": ["открой powershell", "пауэршелл", "power shell"],
-    "action": "actions.system.open_powershell"
-  },
-
-  "shutdown": {
-    "phrases": ["выключи компьютер", "выруби пк", "shutdown"],
-    "action": "actions.system.shutdown"
-  },
-  "restart": {
-    "phrases": ["перезагрузи компьютер", "перезагрузка", "restart", "ребут"],
-    "action": "actions.system.restart"
-  },
-  "lock_pc": {
-    "phrases": ["заблокируй компьютер", "заблокируй экран", "lock", "блокировка"],
-    "action": "actions.system.lock"
-  },
-  "sleep_pc": {
-    "phrases": ["спящий режим", "усыпи компьютер", "sleep"],
-    "action": "actions.system.sleep"
-  },
-
-  "joke": {
-    "phrases": ["расскажи шутку", "расскажи анекдот", "пошути"],
-    "action": "actions.fun.tell_joke"
-  },
-  "coin": {
-    "phrases": ["подбрось монетку", "орел или решка", "брось монетку", "монетка"],
-    "action": "actions.fun.flip_coin"
-  },
-  "random_number": {
-    "phrases": ["случайное число", "выбери число", "рандомное число", "рандом"],
-    "action": "actions.fun.random_number"
-  },
-  "greet": {
-    "phrases": ["привет", "здравствуй", "хай", "hello"],
-    "action": "actions.fun.greet"
-  },
-  "bye": {
-    "phrases": ["пока", "до свидания", "выключись", "закройся"],
-    "action": "actions.fun.goodbye"
-  },
-
-  "roll_dice": {
-    "phrases": ["брось кубик", "кидай кубик", "кубик"],
-    "action": "actions.tools.roll_dice"
-  },
-  "generate_password": {
-    "phrases": ["сгенерируй пароль", "сделай пароль", "создай пароль"],
-    "action": "actions.tools.generate_password"
-  },
-  "copy_clipboard": {
-    "phrases": ["скопируй в буфер", "в буфер", "скопируй текст"],
-    "action": "actions.tools.copy_to_clipboard"
-  },
   "timer": {
-    "phrases": ["таймер", "поставь таймер", "засеки"],
+    "category": "Инструменты",
+    "title": "Таймер",
+    "description": "Запускает таймер на указанное время.",
+    "examples": [
+      "поставь таймер на 5 минут",
+      "таймер на 10 секунд"
+    ],
+    "phrases": [
+      "таймер",
+      "поставь таймер",
+      "запусти таймер",
+      "включи таймер",
+      "таймер на",
+      "засеки",
+      "поставь отсчет",
+      "обратный отсчет"
+    ],
     "action": "actions.tools.timer"
   },
 
-  "open_chrome": {
-    "phrases": ["открой хром", "chrome", "гугл хром"],
-    "action": "actions.apps.open_chrome"
+  "generate_password": {
+    "category": "Инструменты",
+    "title": "Сгенерировать пароль",
+    "description": "Создаёт случайный пароль.",
+    "examples": [
+      "сгенерируй пароль",
+      "создай пароль на 16 символов"
+    ],
+    "phrases": [
+      "сгенерируй пароль",
+      "создай пароль",
+      "придумай пароль",
+      "сделай пароль",
+      "пароль",
+      "генератор паролей",
+      "новый пароль"
+    ],
+    "action": "actions.tools.generate_password"
   },
-  "open_edge": {
-    "phrases": ["открой edge", "эдж", "microsoft edge"],
-    "action": "actions.apps.open_edge"
+
+  "copy_to_clipboard": {
+    "category": "Инструменты",
+    "title": "Скопировать текст",
+    "description": "Копирует указанный текст в буфер обмена.",
+    "examples": [
+      "скопируй в буфер hello"
+    ],
+    "phrases": [
+      "скопируй в буфер",
+      "в буфер",
+      "скопируй текст",
+      "копировать текст",
+      "положи в буфер",
+      "добавь в буфер обмена"
+    ],
+    "action": "actions.tools.copy_to_clipboard"
   },
-  "open_discord": {
-    "phrases": ["открой дискорд", "discord", "дискорд"],
-    "action": "actions.apps.open_discord"
+
+  "roll_dice": {
+    "category": "Развлечения",
+    "title": "Бросить кубик",
+    "description": "Бросает кубик от 1 до 6.",
+    "examples": [
+      "брось кубик"
+    ],
+    "phrases": [
+      "брось кубик",
+      "кинь кубик",
+      "кубик",
+      "ролл дайс",
+      "roll dice"
+    ],
+    "action": "actions.tools.roll_dice"
   },
-  "open_telegram": {
-    "phrases": ["открой телеграм", "telegram", "телеграм", "телега"],
-    "action": "actions.apps.open_telegram"
+
+  "flip_coin": {
+    "category": "Развлечения",
+    "title": "Подбросить монетку",
+    "description": "Выбирает орёл или решка.",
+    "examples": [
+      "подбрось монетку"
+    ],
+    "phrases": [
+      "подбрось монетку",
+      "кинь монетку",
+      "орел или решка",
+      "орёл или решка",
+      "монетка",
+      "coin flip"
+    ],
+    "action": "actions.fun.flip_coin"
   },
-  "open_steam": {
-    "phrases": ["открой стим", "steam", "стим"],
-    "action": "actions.apps.open_steam"
+
+  "random_number": {
+    "category": "Развлечения",
+    "title": "Случайное число",
+    "description": "Выбирает случайное число от 1 до 100.",
+    "examples": [
+      "случайное число"
+    ],
+    "phrases": [
+      "случайное число",
+      "рандомное число",
+      "выбери число",
+      "назови число",
+      "число от одного до ста"
+    ],
+    "action": "actions.fun.random_number"
   },
+
+  "tell_joke": {
+    "category": "Развлечения",
+    "title": "Рассказать шутку",
+    "description": "Рассказывает случайную шутку.",
+    "examples": [
+      "расскажи шутку"
+    ],
+    "phrases": [
+      "расскажи шутку",
+      "пошути",
+      "анекдот",
+      "расскажи анекдот",
+      "скажи шутку",
+      "развесели меня",
+      "что нибудь смешное"
+    ],
+    "action": "actions.fun.tell_joke"
+  },
+
   "create_todo_task": {
+    "category": "TODO",
+    "title": "Создать задачу",
+    "description": "Создаёт задачу в TODO-приложении.",
+    "examples": [
+      "создай задачу купить продукты",
+      "добавь задачу завтра в 15:00 сделать отчёт",
+      "запиши задачу тринадцатого позвонить"
+    ],
     "phrases": [
       "создай задачу",
       "добавь задачу",
@@ -188,20 +652,42 @@
       "запиши задачу",
       "поставь задачу",
       "создать задачу",
-      "добавить задачу"
+      "добавить задачу",
+      "задача",
+      "запланируй",
+      "добавь в задачи",
+      "запиши в задачи",
+      "напомни задачу",
+      "нужно сделать",
+      "мне нужно",
+      "надо сделать",
+      "план на"
     ],
     "action": "actions.todo_actions.create_task"
   },
+
   "create_todo_note": {
+    "category": "TODO",
+    "title": "Создать заметку",
+    "description": "Создаёт заметку в TODO-приложении.",
+    "examples": [
+      "создай заметку идея проекта",
+      "запиши заметку купить подарок"
+    ],
     "phrases": [
       "создай заметку",
       "добавь заметку",
       "новая заметка",
       "запиши заметку",
       "создать заметку",
-      "добавить заметку"
+      "добавить заметку",
+      "заметка",
+      "запиши в заметки",
+      "добавь в заметки",
+      "сохрани заметку",
+      "запомни",
+      "сохрани мысль"
     ],
     "action": "actions.todo_actions.create_note"
   }
-
 }

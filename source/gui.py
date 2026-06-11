@@ -22,12 +22,21 @@ from core.tts import Speaker
 HOTKEY = "ctrl+shift+space"
 
 
-# -------------------------
-# Resource path
-# -------------------------
+# =====================================================
+# RESOURCE PATH
+# =====================================================
+
 def resource_path(relative_path: str) -> str:
-    if hasattr(sys, "_MEIPASS"):
-        return os.path.join(sys._MEIPASS, relative_path)
+
+    if hasattr(
+        sys,
+        "_MEIPASS"
+    ):
+
+        return os.path.join(
+            sys._MEIPASS,
+            relative_path
+        )
 
     return os.path.join(
         os.path.abspath("."),
@@ -35,11 +44,13 @@ def resource_path(relative_path: str) -> str:
     )
 
 
-# -------------------------
-# Platform context
-# -------------------------
+# =====================================================
+# PLATFORM CONTEXT
+# =====================================================
+
 @dataclass(frozen=True)
 class PlatformContext:
+
     os_name: str
     is_windows: bool
     is_linux: bool
@@ -47,6 +58,7 @@ class PlatformContext:
 
 
 def detect_platform() -> PlatformContext:
+
     name = platform.system().lower()
 
     return PlatformContext(
@@ -57,34 +69,82 @@ def detect_platform() -> PlatformContext:
     )
 
 
-# -------------------------
-# Notifier
-# -------------------------
+# =====================================================
+# NOTIFIER
+# =====================================================
+
 class Notifier:
 
     def __init__(
         self,
         ctx: PlatformContext,
-        app_id: str = "AAYA"
+        app_id: str = "AAYA",
+        root=None
     ):
 
         self.ctx = ctx
         self.app_id = app_id
-        self._win_ok = False
+        self.root = root
+
+        self._windows_toasts_ok = False
+        self._WindowsToaster = None
+        self._Toast = None
+        self._toaster = None
+
+        self._winotify_ok = False
         self._Notification = None
         self._audio = None
 
         if ctx.is_windows:
 
             try:
+
+                from windows_toasts import WindowsToaster, Toast
+
+                self._WindowsToaster = WindowsToaster
+                self._Toast = Toast
+
+                self._toaster = WindowsToaster(
+                    self.app_id
+                )
+
+                self._windows_toasts_ok = True
+
+                print(
+                    "Windows-уведомления: windows-toasts подключён"
+                )
+
+            except Exception as e:
+
+                self._windows_toasts_ok = False
+
+                print(
+                    f"windows-toasts недоступен: {e}"
+                )
+
+            try:
+
                 from winotify import Notification, audio
 
                 self._Notification = Notification
                 self._audio = audio
-                self._win_ok = True
+                self._winotify_ok = True
 
-            except Exception:
-                self._win_ok = False
+                print(
+                    "Windows-уведомления: winotify подключён"
+                )
+
+            except Exception as e:
+
+                self._winotify_ok = False
+
+                print(
+                    f"winotify недоступен: {e}"
+                )
+
+    # =====================================================
+    # PUBLIC METHOD
+    # =====================================================
 
     def toast(
         self,
@@ -99,30 +159,117 @@ class Notifier:
         if not msg:
             return
 
-        if self.ctx.is_windows and self._win_ok:
+        # ВАЖНО:
+        # Windows toast должен вызываться из главного GUI-потока.
+        # Поэтому если есть root, отправляем показ через root.after().
+        if self.root:
 
             try:
+
+                self.root.after(
+                    0,
+                    lambda:
+                    self._toast_main_thread(
+                        title,
+                        msg
+                    )
+                )
+
+                return
+
+            except Exception as e:
+
+                print(
+                    f"Ошибка передачи уведомления в GUI-поток: {e}"
+                )
+
+        self._toast_main_thread(
+            title,
+            msg
+        )
+
+    # =====================================================
+    # REAL TOAST IMPLEMENTATION
+    # =====================================================
+
+    def _toast_main_thread(
+        self,
+        title: str,
+        msg: str
+    ) -> None:
+
+        # =================================================
+        # WINDOWS: windows-toasts
+        # =================================================
+
+        if self.ctx.is_windows and self._windows_toasts_ok:
+
+            try:
+
+                toast = self._Toast()
+
+                toast.text_fields = [
+                    title,
+                    msg
+                ]
+
+                self._toaster.show_toast(
+                    toast
+                )
+
+                return
+
+            except Exception as e:
+
+                print(
+                    f"Ошибка windows-toasts уведомления: {e}"
+                )
+
+        # =================================================
+        # WINDOWS: winotify fallback
+        # =================================================
+
+        if self.ctx.is_windows and self._winotify_ok:
+
+            try:
+
                 n = self._Notification(
                     app_id=self.app_id,
                     title=title,
-                    msg=msg
+                    msg=msg,
+                    duration="short"
                 )
 
-                if self._audio:
-                    n.set_audio(
-                        self._audio.SMS,
-                        loop=False
-                    )
+                try:
+
+                    if self._audio:
+
+                        n.set_audio(
+                            self._audio.Default,
+                            loop=False
+                        )
+
+                except Exception:
+                    pass
 
                 n.show()
+
                 return
 
-            except Exception:
-                pass
+            except Exception as e:
+
+                print(
+                    f"Ошибка winotify уведомления: {e}"
+                )
+
+        # =================================================
+        # LINUX NOTIFICATION
+        # =================================================
 
         if self.ctx.is_linux:
 
             try:
+
                 subprocess.run(
                     [
                         "notify-send",
@@ -136,17 +283,150 @@ class Notifier:
 
                 return
 
-            except Exception:
-                pass
+            except Exception as e:
+
+                print(
+                    f"Ошибка Linux-уведомления: {e}"
+                )
+
+        # =================================================
+        # FALLBACK POPUP INSIDE APP
+        # =================================================
 
         print(
             f"{title}: {msg}"
         )
 
+        self._fallback_popup(
+            title,
+            msg
+        )
 
-# -------------------------
-# Hotkeys
-# -------------------------
+    # =====================================================
+    # FALLBACK POPUP
+    # =====================================================
+
+    def _fallback_popup(
+        self,
+        title: str,
+        msg: str
+    ):
+
+        if not self.root:
+            return
+
+        try:
+
+            self._show_popup(
+                title,
+                msg
+            )
+
+        except Exception as e:
+
+            print(
+                f"Ошибка fallback-уведомления: {e}"
+            )
+
+    def _show_popup(
+        self,
+        title: str,
+        msg: str
+    ):
+
+        try:
+
+            popup = ctk.CTkToplevel(
+                self.root
+            )
+
+            popup.title(
+                title
+            )
+
+            popup.geometry(
+                "360x120"
+            )
+
+            popup.resizable(
+                False,
+                False
+            )
+
+            popup.attributes(
+                "-topmost",
+                True
+            )
+
+            try:
+
+                screen_w = popup.winfo_screenwidth()
+                screen_h = popup.winfo_screenheight()
+
+                x = screen_w - 390
+                y = screen_h - 180
+
+                popup.geometry(
+                    f"360x120+{x}+{y}"
+                )
+
+            except Exception:
+                pass
+
+            frame = ctk.CTkFrame(
+                popup,
+                corner_radius=14
+            )
+
+            frame.pack(
+                fill="both",
+                expand=True,
+                padx=10,
+                pady=10
+            )
+
+            ctk.CTkLabel(
+                frame,
+                text=title,
+                font=ctk.CTkFont(
+                    size=16,
+                    weight="bold"
+                ),
+                anchor="w"
+            ).pack(
+                fill="x",
+                padx=12,
+                pady=(10, 2)
+            )
+
+            ctk.CTkLabel(
+                frame,
+                text=msg,
+                wraplength=320,
+                anchor="w",
+                justify="left"
+            ).pack(
+                fill="x",
+                padx=12,
+                pady=(0, 10)
+            )
+
+            popup.after(
+                3500,
+                popup.destroy
+            )
+
+        except Exception as e:
+
+            print(
+                f"Ошибка fallback-уведомления: {e}"
+            )
+
+
+# =====================================================
+# HOTKEYS
+# =====================================================
+
 class Hotkeys:
 
     def __init__(
@@ -156,11 +436,13 @@ class Hotkeys:
         self._keyboard = None
 
         try:
+
             import keyboard
 
             self._keyboard = keyboard
 
         except Exception:
+
             self._keyboard = None
 
     @property
@@ -180,6 +462,7 @@ class Hotkeys:
             return False
 
         try:
+
             self._keyboard.add_hotkey(
                 hotkey,
                 callback
@@ -188,6 +471,7 @@ class Hotkeys:
             return True
 
         except Exception:
+
             return False
 
     def unregister_all(
@@ -198,15 +482,17 @@ class Hotkeys:
             return
 
         try:
+
             self._keyboard.unhook_all_hotkeys()
 
         except Exception:
             pass
 
 
-# -------------------------
-# Helpers
-# -------------------------
+# =====================================================
+# HELPERS
+# =====================================================
+
 def _clean_output_lines(
     raw: str
 ) -> List[str]:
@@ -246,9 +532,10 @@ def _final_answer_from_captured(
     return lines[-1].strip()
 
 
-# -------------------------
-# Tray
-# -------------------------
+# =====================================================
+# TRAY
+# =====================================================
+
 class Tray:
 
     def __init__(
@@ -261,120 +548,192 @@ class Tray:
         self.app_name = app_name
         self._open_cb = open_cb
         self._exit_cb = exit_cb
+
         self._icon = None
         self._thread = None
 
+        self.available = False
+        self.started = False
+
     def start(
+        self
+    ) -> bool:
+
+        try:
+
+            import pystray
+            from PIL import Image, ImageDraw
+
+        except Exception as e:
+
+            print(
+                f"Трей недоступен: {e}"
+            )
+
+            self.available = False
+            self.started = False
+
+            return False
+
+        try:
+
+            img = Image.new(
+                "RGBA",
+                (
+                    64,
+                    64
+                ),
+                (
+                    0,
+                    0,
+                    0,
+                    0
+                )
+            )
+
+            d = ImageDraw.Draw(
+                img
+            )
+
+            d.rounded_rectangle(
+                (
+                    8,
+                    8,
+                    56,
+                    56
+                ),
+                radius=12,
+                outline=(
+                    0,
+                    180,
+                    255,
+                    255
+                ),
+                width=4
+            )
+
+            d.text(
+                (
+                    25,
+                    18
+                ),
+                "A",
+                fill=(
+                    0,
+                    180,
+                    255,
+                    255
+                )
+            )
+
+            menu = pystray.Menu(
+                pystray.MenuItem(
+                    "Открыть AAYA",
+                    lambda icon, item:
+                    self._safe_open()
+                ),
+                pystray.MenuItem(
+                    "Выход",
+                    lambda icon, item:
+                    self._safe_exit()
+                ),
+            )
+
+            self._icon = pystray.Icon(
+                self.app_name,
+                img,
+                self.app_name,
+                menu
+            )
+
+            def _run():
+
+                try:
+
+                    self.available = True
+                    self.started = True
+
+                    self._icon.run()
+
+                except Exception as e:
+
+                    self.started = False
+
+                    print(
+                        f"Ошибка работы трея: {e}"
+                    )
+
+            self._thread = threading.Thread(
+                target=_run,
+                daemon=True
+            )
+
+            self._thread.start()
+
+            self.available = True
+            self.started = True
+
+            return True
+
+        except Exception as e:
+
+            print(
+                f"Не удалось запустить трей: {e}"
+            )
+
+            self.available = False
+            self.started = False
+
+            return False
+
+    def _safe_open(
         self
     ):
 
         try:
-            import pystray
-            from PIL import Image, ImageDraw
 
-        except Exception:
-            return
+            self._open_cb()
 
-        img = Image.new(
-            "RGBA",
-            (
-                64,
-                64
-            ),
-            (
-                0,
-                0,
-                0,
-                0
+        except Exception as e:
+
+            print(
+                f"Ошибка открытия из трея: {e}"
             )
-        )
 
-        d = ImageDraw.Draw(
-            img
-        )
+    def _safe_exit(
+        self
+    ):
 
-        d.rounded_rectangle(
-            (
-                8,
-                8,
-                56,
-                56
-            ),
-            radius=12,
-            outline=(
-                0,
-                180,
-                255,
-                255
-            ),
-            width=4
-        )
+        try:
 
-        d.text(
-            (
-                24,
-                18
-            ),
-            "A",
-            fill=(
-                0,
-                180,
-                255,
-                255
+            self._exit_cb()
+
+        except Exception as e:
+
+            print(
+                f"Ошибка выхода из трея: {e}"
             )
-        )
-
-        menu = pystray.Menu(
-            pystray.MenuItem(
-                "Открыть",
-                lambda:
-                self._open_cb()
-            ),
-            pystray.MenuItem(
-                "Выход",
-                lambda:
-                self._exit_cb()
-            ),
-        )
-
-        self._icon = pystray.Icon(
-            self.app_name,
-            img,
-            self.app_name,
-            menu
-        )
-
-        def _run():
-
-            try:
-                self._icon.run()
-
-            except Exception:
-                pass
-
-        self._thread = threading.Thread(
-            target=_run,
-            daemon=True
-        )
-
-        self._thread.start()
 
     def stop(
         self
     ):
 
+        self.started = False
+
         if self._icon:
 
             try:
+
                 self._icon.stop()
 
             except Exception:
                 pass
 
 
-# -------------------------
-# Commands window
-# -------------------------
+# =====================================================
+# COMMANDS WINDOW
+# =====================================================
+
 class CommandsWindow(ctk.CTkToplevel):
 
     def __init__(
@@ -387,17 +746,20 @@ class CommandsWindow(ctk.CTkToplevel):
             master
         )
 
+        self.commands_path = commands_path
+        self.commands_data = {}
+
         self.title(
-            "Команды"
+            "Команды AAYA"
         )
 
         self.geometry(
-            "750x520"
+            "920x620"
         )
 
         self.minsize(
-            650,
-            450
+            820,
+            520
         )
 
         self.grid_columnconfigure(
@@ -406,134 +768,699 @@ class CommandsWindow(ctk.CTkToplevel):
         )
 
         self.grid_rowconfigure(
-            1,
+            2,
             weight=1
         )
 
-        title = ctk.CTkLabel(
+        self.header = ctk.CTkLabel(
             self,
-            text="Список доступных команд",
+            text="Команды AAYA",
             font=ctk.CTkFont(
-                size=18,
+                size=24,
                 weight="bold"
             )
         )
 
-        title.grid(
+        self.header.grid(
             row=0,
             column=0,
-            padx=12,
-            pady=(12, 8),
+            padx=18,
+            pady=(16, 4),
             sticky="w"
         )
 
-        self.textbox = ctk.CTkTextbox(
+        self.subtitle = ctk.CTkLabel(
             self,
-            wrap="word"
+            text="Здесь собраны команды, которые можно говорить естественным языком.",
+            font=ctk.CTkFont(
+                size=14
+            ),
+            text_color="#A8A8A8"
         )
 
-        self.textbox.grid(
+        self.subtitle.grid(
             row=1,
             column=0,
-            padx=12,
+            padx=18,
+            pady=(0, 10),
+            sticky="w"
+        )
+
+        top = ctk.CTkFrame(
+            self,
+            fg_color="transparent"
+        )
+
+        top.grid(
+            row=2,
+            column=0,
+            padx=18,
             pady=(0, 12),
             sticky="nsew"
         )
 
-        self._load_commands(
-            commands_path
+        top.grid_columnconfigure(
+            0,
+            weight=0
         )
 
+        top.grid_columnconfigure(
+            1,
+            weight=1
+        )
+
+        top.grid_rowconfigure(
+            0,
+            weight=1
+        )
+
+        # =========================
+        # LEFT PANEL
+        # =========================
+
+        left = ctk.CTkFrame(
+            top,
+            width=230,
+            corner_radius=14
+        )
+
+        left.grid(
+            row=0,
+            column=0,
+            sticky="ns",
+            padx=(0, 12)
+        )
+
+        left.grid_propagate(
+            False
+        )
+
+        ctk.CTkLabel(
+            left,
+            text="Категории",
+            font=ctk.CTkFont(
+                size=17,
+                weight="bold"
+            )
+        ).pack(
+            anchor="w",
+            padx=14,
+            pady=(14, 8)
+        )
+
+        self.category_frame = ctk.CTkScrollableFrame(
+            left,
+            fg_color="transparent"
+        )
+
+        self.category_frame.pack(
+            fill="both",
+            expand=True,
+            padx=8,
+            pady=(0, 8)
+        )
+
+        # =========================
+        # RIGHT PANEL
+        # =========================
+
+        right = ctk.CTkFrame(
+            top,
+            corner_radius=14
+        )
+
+        right.grid(
+            row=0,
+            column=1,
+            sticky="nsew"
+        )
+
+        right.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        right.grid_rowconfigure(
+            2,
+            weight=1
+        )
+
+        search_row = ctk.CTkFrame(
+            right,
+            fg_color="transparent"
+        )
+
+        search_row.grid(
+            row=0,
+            column=0,
+            padx=14,
+            pady=(14, 8),
+            sticky="ew"
+        )
+
+        search_row.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.search_entry = ctk.CTkEntry(
+            search_row,
+            placeholder_text="Поиск команды: например, ютуб, задача, время, перевод..."
+        )
+
+        self.search_entry.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 10)
+        )
+
+        self.search_entry.bind(
+            "<KeyRelease>",
+            lambda event:
+            self._render_commands()
+        )
+
+        self.clear_btn = ctk.CTkButton(
+            search_row,
+            text="Очистить",
+            width=100,
+            command=self._clear_search
+        )
+
+        self.clear_btn.grid(
+            row=0,
+            column=1
+        )
+
+        self.info_label = ctk.CTkLabel(
+            right,
+            text="",
+            font=ctk.CTkFont(
+                size=13
+            ),
+            text_color="#A8A8A8"
+        )
+
+        self.info_label.grid(
+            row=1,
+            column=0,
+            padx=14,
+            pady=(0, 8),
+            sticky="w"
+        )
+
+        self.commands_frame = ctk.CTkScrollableFrame(
+            right,
+            corner_radius=12
+        )
+
+        self.commands_frame.grid(
+            row=2,
+            column=0,
+            padx=14,
+            pady=(0, 14),
+            sticky="nsew"
+        )
+
+        self.active_category = "Все"
+
+        self._load_commands()
+        self._render_categories()
+        self._render_commands()
+
     def _load_commands(
-        self,
-        commands_path: str
+        self
     ):
 
         try:
 
             with open(
-                commands_path,
+                self.commands_path,
                 "r",
                 encoding="utf-8"
             ) as f:
 
-                data = json.load(
+                self.commands_data = json.load(
                     f
                 )
 
-            blocks = []
+        except Exception as e:
 
-            for cmd_name, info in data.items():
+            self.commands_data = {}
 
-                phrases = info.get(
+            messagebox.showerror(
+                "AAYA",
+                f"Не удалось загрузить команды:\n{e}"
+            )
+
+    def _get_categories(
+        self
+    ):
+
+        categories = {
+            "Все"
+        }
+
+        for info in self.commands_data.values():
+
+            categories.add(
+                info.get(
+                    "category",
+                    "Другое"
+                )
+            )
+
+        preferred = [
+            "Все",
+            "Общение",
+            "Система",
+            "Приложения",
+            "Сайты",
+            "Поиск",
+            "Инструменты",
+            "TODO",
+            "Развлечения",
+            "Другое"
+        ]
+
+        result = []
+
+        for category in preferred:
+
+            if category in categories:
+
+                result.append(
+                    category
+                )
+
+        for category in sorted(
+            categories
+        ):
+
+            if category not in result:
+
+                result.append(
+                    category
+                )
+
+        return result
+
+    def _render_categories(
+        self
+    ):
+
+        for widget in self.category_frame.winfo_children():
+
+            widget.destroy()
+
+        for category in self._get_categories():
+
+            count = self._count_category(
+                category
+            )
+
+            text = (
+                f"{category}  ·  {count}"
+                if category != "Все"
+                else f"Все команды  ·  {count}"
+            )
+
+            btn = ctk.CTkButton(
+                self.category_frame,
+                text=text,
+                anchor="w",
+                height=38,
+                fg_color=(
+                    "#1F6AA5"
+                    if category == self.active_category
+                    else "transparent"
+                ),
+                hover_color="#2B2B2B",
+                command=lambda c=category:
+                self._select_category(
+                    c
+                )
+            )
+
+            btn.pack(
+                fill="x",
+                pady=4
+            )
+
+    def _count_category(
+        self,
+        category: str
+    ) -> int:
+
+        if category == "Все":
+
+            return len(
+                self.commands_data
+            )
+
+        count = 0
+
+        for info in self.commands_data.values():
+
+            if info.get(
+                "category",
+                "Другое"
+            ) == category:
+
+                count += 1
+
+        return count
+
+    def _select_category(
+        self,
+        category: str
+    ):
+
+        self.active_category = category
+
+        self._render_categories()
+        self._render_commands()
+
+    def _clear_search(
+        self
+    ):
+
+        self.search_entry.delete(
+            0,
+            "end"
+        )
+
+        self._render_commands()
+
+    def _matches_search(
+        self,
+        command_name: str,
+        info: dict,
+        query: str
+    ) -> bool:
+
+        if not query:
+            return True
+
+        parts = [
+            command_name,
+            info.get(
+                "title",
+                ""
+            ),
+            info.get(
+                "description",
+                ""
+            ),
+            info.get(
+                "category",
+                ""
+            ),
+            " ".join(
+                info.get(
                     "phrases",
                     []
                 )
-
-                action = info.get(
-                    "action",
-                    ""
+            ),
+            " ".join(
+                info.get(
+                    "examples",
+                    []
                 )
+            )
+        ]
 
-                blocks.append(
-                    f"• {cmd_name}\n"
-                    f"  Действие: {action}\n"
-                    f"  Фразы: {', '.join(phrases)}\n"
+        haystack = " ".join(
+            parts
+        ).lower()
+
+        return query.lower() in haystack
+
+    def _render_commands(
+        self
+    ):
+
+        for widget in self.commands_frame.winfo_children():
+
+            widget.destroy()
+
+        query = (
+            self.search_entry.get()
+            or ""
+        ).strip()
+
+        visible = []
+
+        for command_name, info in self.commands_data.items():
+
+            category = info.get(
+                "category",
+                "Другое"
+            )
+
+            if (
+                self.active_category != "Все"
+                and category != self.active_category
+            ):
+
+                continue
+
+            if not self._matches_search(
+                command_name,
+                info,
+                query
+            ):
+
+                continue
+
+            visible.append(
+                (
+                    command_name,
+                    info
                 )
-
-            content = (
-                "\n".join(blocks)
-                if blocks
-                else "Команды не найдены."
             )
 
-            self.textbox.insert(
-                "1.0",
-                content
+        self.info_label.configure(
+            text=f"Найдено команд: {len(visible)}"
+        )
+
+        if not visible:
+
+            empty = ctk.CTkLabel(
+                self.commands_frame,
+                text="Ничего не найдено. Попробуй другое слово.",
+                font=ctk.CTkFont(
+                    size=15
+                ),
+                text_color="#A8A8A8"
             )
 
-            self.textbox.configure(
-                state="disabled"
+            empty.pack(
+                pady=30
             )
 
-        except Exception as e:
+            return
 
-            self.textbox.insert(
-                "1.0",
-                f"Не удалось загрузить команды: {e}"
+        for command_name, info in visible:
+
+            self._add_command_card(
+                command_name,
+                info
             )
 
-            self.textbox.configure(
-                state="disabled"
+    def _add_command_card(
+        self,
+        command_name: str,
+        info: dict
+    ):
+
+        card = ctk.CTkFrame(
+            self.commands_frame,
+            corner_radius=14
+        )
+
+        card.pack(
+            fill="x",
+            padx=4,
+            pady=7
+        )
+
+        card.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        title = info.get(
+            "title",
+            command_name
+        )
+
+        category = info.get(
+            "category",
+            "Другое"
+        )
+
+        description = info.get(
+            "description",
+            ""
+        )
+
+        title_label = ctk.CTkLabel(
+            card,
+            text=f"{title}",
+            font=ctk.CTkFont(
+                size=17,
+                weight="bold"
+            ),
+            anchor="w"
+        )
+
+        title_label.grid(
+            row=0,
+            column=0,
+            padx=14,
+            pady=(12, 2),
+            sticky="ew"
+        )
+
+        meta_label = ctk.CTkLabel(
+            card,
+            text=f"{category}  ·  {command_name}",
+            font=ctk.CTkFont(
+                size=12
+            ),
+            text_color="#8E8E8E",
+            anchor="w"
+        )
+
+        meta_label.grid(
+            row=1,
+            column=0,
+            padx=14,
+            pady=(0, 6),
+            sticky="ew"
+        )
+
+        if description:
+
+            desc_label = ctk.CTkLabel(
+                card,
+                text=description,
+                font=ctk.CTkFont(
+                    size=13
+                ),
+                text_color="#C8C8C8",
+                anchor="w",
+                justify="left",
+                wraplength=610
             )
 
+            desc_label.grid(
+                row=2,
+                column=0,
+                padx=14,
+                pady=(0, 8),
+                sticky="ew"
+            )
 
-# -------------------------
-# Main GUI
-# -------------------------
+        examples = info.get(
+            "examples",
+            []
+        )
+
+        if examples:
+
+            examples_text = "Примеры: " + "   |   ".join(
+                examples[:3]
+            )
+
+            examples_label = ctk.CTkLabel(
+                card,
+                text=examples_text,
+                font=ctk.CTkFont(
+                    size=13
+                ),
+                text_color="#7FD1FF",
+                anchor="w",
+                justify="left",
+                wraplength=610
+            )
+
+            examples_label.grid(
+                row=3,
+                column=0,
+                padx=14,
+                pady=(0, 8),
+                sticky="ew"
+            )
+
+        phrases = info.get(
+            "phrases",
+            []
+        )
+
+        if phrases:
+
+            phrase_preview = ", ".join(
+                phrases[:8]
+            )
+
+            if len(
+                phrases
+            ) > 8:
+
+                phrase_preview += f" и ещё {len(phrases) - 8}"
+
+            phrases_label = ctk.CTkLabel(
+                card,
+                text=f"Фразы: {phrase_preview}",
+                font=ctk.CTkFont(
+                    size=12
+                ),
+                text_color="#A8A8A8",
+                anchor="w",
+                justify="left",
+                wraplength=610
+            )
+
+            phrases_label.grid(
+                row=4,
+                column=0,
+                padx=14,
+                pady=(0, 12),
+                sticky="ew"
+            )
+
+# =====================================================
+# MAIN GUI
+# =====================================================
+
 class AssistantGUI:
 
     def __init__(
         self,
-        root
+        root,
+        app_window=None
     ):
 
         self.root = root
+        self.app_window = app_window or root.winfo_toplevel()
 
-        # platform/services
         self.ctx = detect_platform()
+
         self.notifier = Notifier(
             self.ctx,
-            app_id="AAYA"
+            app_id="AAYA",
+            root=self.app_window
         )
+
         self.hotkeys = Hotkeys()
 
-        # voice answers
         self.speaker = Speaker(
             enabled=True
         )
 
-        # commands
         self.commands_path = resource_path(
             "commands.json"
         )
@@ -550,31 +1477,38 @@ class AssistantGUI:
             self.commands
         )
 
-        # speech
         self.recognizer = sr.Recognizer()
+
         self._listen_lock = threading.Lock()
         self._listening = False
 
-        # anti-duplicate recognized text
         self._last_text_handled = ""
         self._last_text_time = 0.0
 
-        # closing flag
         self._closing = False
 
-        # UI
         self._build_ui()
 
-        # tray
         self.tray = Tray(
             "AAYA",
             open_cb=self._tray_open_safe,
             exit_cb=self._tray_exit_safe
         )
 
-        self.tray.start()
+        self.tray_available = self.tray.start()
 
-        # hotkey
+        if self.tray_available:
+
+            self._log(
+                "Фоновый режим: трей запущен"
+            )
+
+        else:
+
+            self._log(
+                "Фоновый режим: трей недоступен, окно будет только сворачиваться"
+            )
+
         if self.hotkeys.available:
 
             ok = self.hotkeys.register(
@@ -585,7 +1519,7 @@ class AssistantGUI:
             if ok:
 
                 self._log(
-                    f"Hotkey: {HOTKEY} (пакет keyboard установлен)"
+                    f"Hotkey: {HOTKEY} активен"
                 )
 
             else:
@@ -609,21 +1543,25 @@ class AssistantGUI:
         )
 
         if hasattr(
-            self.root,
+            self.app_window,
             "protocol"
         ):
 
-            self.root.protocol(
+            self.app_window.protocol(
                 "WM_DELETE_WINDOW",
                 self.hide_to_tray
             )
 
-    # ---------- tray-safe ----------
+    # =====================================================
+    # TRAY SAFE CALLBACKS
+    # =====================================================
+
     def _tray_open_safe(
         self
     ):
 
         try:
+
             self.root.after(
                 0,
                 self.show_window
@@ -637,6 +1575,7 @@ class AssistantGUI:
     ):
 
         try:
+
             self.root.after(
                 0,
                 self.exit_app
@@ -645,7 +1584,10 @@ class AssistantGUI:
         except Exception:
             pass
 
-    # ---------- UI ----------
+    # =====================================================
+    # UI
+    # =====================================================
+
     def _build_ui(
         self
     ):
@@ -699,7 +1641,6 @@ class AssistantGUI:
             sticky="n"
         )
 
-        # log
         self.logbox = ctk.CTkTextbox(
             main,
             wrap="word"
@@ -717,7 +1658,6 @@ class AssistantGUI:
             state="disabled"
         )
 
-        # input panel
         bottom = ctk.CTkFrame(
             main
         )
@@ -811,7 +1751,6 @@ class AssistantGUI:
             sticky="ew"
         )
 
-        # status row
         status_row = ctk.CTkFrame(
             main,
             fg_color="transparent"
@@ -882,9 +1821,13 @@ class AssistantGUI:
                 self.theme_switch.deselect()
 
         except Exception:
+
             self.theme_switch.select()
 
-    # ---------- logging ----------
+    # =====================================================
+    # LOGGING
+    # =====================================================
+
     def _log(
         self,
         text: str
@@ -936,7 +1879,10 @@ class AssistantGUI:
                 text="● Микрофон: выкл"
             )
 
-    # ---------- theme ----------
+    # =====================================================
+    # THEME
+    # =====================================================
+
     def toggle_theme(
         self
     ):
@@ -966,7 +1912,10 @@ class AssistantGUI:
         except Exception:
             pass
 
-    # ---------- events ----------
+    # =====================================================
+    # EVENTS
+    # =====================================================
+
     def _on_enter(
         self,
         event=None
@@ -981,13 +1930,16 @@ class AssistantGUI:
     ):
 
         win = CommandsWindow(
-            self.root,
+            self.app_window,
             self.commands_path
         )
 
         win.focus()
 
-    # ---------- load commands ----------
+    # =====================================================
+    # LOAD COMMANDS
+    # =====================================================
+
     def _load_commands(
         self,
         path: str
@@ -1048,9 +2000,13 @@ class AssistantGUI:
             return s or default
 
         except Exception:
+
             return default
 
-    # ---------- text command ----------
+    # =====================================================
+    # TEXT COMMANDS
+    # =====================================================
+
     def run_text_command(
         self
     ):
@@ -1103,13 +2059,16 @@ class AssistantGUI:
             )
 
             try:
+
                 self.speaker.speak(
                     "Выключаюсь."
                 )
+
             except Exception:
                 pass
 
             self.exit_app()
+
             return
 
         self.set_status(
@@ -1140,6 +2099,7 @@ class AssistantGUI:
             )
 
         raw = buf.getvalue()
+
         cleaned = _clean_output_lines(
             raw
         )
@@ -1160,10 +2120,13 @@ class AssistantGUI:
         )
 
         try:
+
             self.speaker.speak(
                 answer
             )
+
         except Exception as e:
+
             print(
                 f"Ошибка запуска озвучки: {e}"
             )
@@ -1172,7 +2135,10 @@ class AssistantGUI:
             "Статус: ожидание"
         )
 
-    # ---------- voice ----------
+    # =====================================================
+    # VOICE COMMANDS
+    # =====================================================
+
     def start_listening(
         self
     ):
@@ -1224,49 +2190,7 @@ class AssistantGUI:
 
         try:
 
-            try:
-
-                microphones = sr.Microphone.list_microphone_names()
-
-                self.root.after(
-                    0,
-                    lambda m=microphones:
-                    self._log(
-                        f"Найдено микрофонов: {len(m)}"
-                    )
-                )
-
-                for i, name in enumerate(
-                    microphones
-                ):
-
-                    self.root.after(
-                        0,
-                        lambda i=i, name=name:
-                        self._log(
-                            f"{i}: {name}"
-                        )
-                    )
-
-            except Exception as e:
-
-                self.root.after(
-                    0,
-                    lambda err=e:
-                    self._log(
-                        f"Не удалось получить список микрофонов: {err}"
-                    )
-                )
-
             with sr.Microphone() as source:
-
-                self.root.after(
-                    0,
-                    lambda:
-                    self._log(
-                        "Микрофон открыт успешно"
-                    )
-                )
 
                 self.recognizer.adjust_for_ambient_noise(
                     source,
@@ -1371,6 +2295,7 @@ class AssistantGUI:
             self._listening = False
 
             try:
+
                 self._listen_lock.release()
 
             except Exception:
@@ -1388,39 +2313,98 @@ class AssistantGUI:
                 self.set_status("Статус: ожидание")
             )
 
-    # ---------- tray behavior ----------
+    # =====================================================
+    # TRAY BEHAVIOR
+    # =====================================================
+
     def hide_to_tray(
         self
     ):
 
+        if getattr(
+            self,
+            "tray_available",
+            False
+        ):
+
+            try:
+
+                self.app_window.withdraw()
+
+                self.notifier.toast(
+                    "AAYA",
+                    "Работаю в фоне. Открыть можно из трея."
+                )
+
+                self._log(
+                    "Окно скрыто в трей."
+                )
+
+                return
+
+            except Exception as e:
+
+                print(
+                    f"Ошибка скрытия в трей: {e}"
+                )
+
         try:
-            self.root.after_idle(
-                self.root.withdraw
+
+            self.app_window.iconify()
+
+            self.notifier.toast(
+                "AAYA",
+                "Трей недоступен, окно просто свернуто."
             )
 
-        except Exception:
-            pass
+            self._log(
+                "Трей недоступен, окно свернуто."
+            )
 
-        self.notifier.toast(
-            "AAYA",
-            "Работает в фоне. Открыть можно из трея."
-        )
+        except Exception as e:
 
-        self._log(
-            "Окно скрыто в трей (приложение работает в фоне)."
-        )
+            print(
+                f"Ошибка сворачивания окна: {e}"
+            )
 
     def show_window(
         self
     ):
 
         try:
-            self.root.deiconify()
-            self.root.lift()
-            self.root.focus_force()
 
-        except Exception:
-            pass
+            self.app_window.deiconify()
+            self.app_window.lift()
+            self.app_window.focus_force()
+
+            try:
+
+                self.app_window.attributes(
+                    "-topmost",
+                    True
+                )
+
+                self.app_window.after(
+                    150,
+                    lambda:
+                    self.app_window.attributes(
+                        "-topmost",
+                        False
+                    )
+                )
+
+            except Exception:
+                pass
+
+            self._log(
+                "Окно AAYA открыто."
+            )
+
+        except Exception as e:
+
+            print(
+                f"Ошибка открытия окна: {e}"
+            )
 
     def exit_app(
         self
@@ -1436,25 +2420,29 @@ class AssistantGUI:
         )
 
         try:
+
             self.speaker.stop()
 
         except Exception:
             pass
 
         try:
+
             self.hotkeys.unregister_all()
 
         except Exception:
             pass
 
         try:
+
             self.tray.stop()
 
         except Exception:
             pass
 
         try:
-            self.root.destroy()
+
+            self.app_window.destroy()
 
         except Exception:
             pass
