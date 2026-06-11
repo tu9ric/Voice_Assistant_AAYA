@@ -89,6 +89,9 @@ class Notifier:
         self.root = root
         self.tray = None
 
+        self._last_toast_key = ""
+        self._last_toast_time = 0.0
+
         self._windows_toasts_ok = False
         self._WindowsToaster = None
         self._Toast = None
@@ -151,12 +154,41 @@ class Notifier:
         msg: str
     ) -> None:
 
+        title = (
+            title or "AAYA"
+        ).strip()
+
         msg = (
             msg or ""
         ).strip()
 
         if not msg:
             return
+
+        # =================================================
+        # ЗАЩИТА ОТ ДУБЛЕЙ
+        # =================================================
+        # Если одно и то же уведомление вызывается несколько
+        # раз подряд меньше чем за 1.5 секунды — показываем
+        # только первое.
+        # =================================================
+
+        now = time.time()
+        key = f"{title}|{msg}"
+
+        if (
+            key == self._last_toast_key
+            and now - self._last_toast_time < 1.5
+        ):
+
+            return
+
+        self._last_toast_key = key
+        self._last_toast_time = now
+
+        # =================================================
+        # Все уведомления отправляем в главный GUI-поток.
+        # =================================================
 
         if self.root:
 
@@ -190,10 +222,8 @@ class Notifier:
         msg: str
     ) -> None:
 
-        shown = False
-
         # =================================================
-        # WINDOWS TOASTS
+        # 1. WINDOWS-TOASTS
         # =================================================
 
         if self.ctx.is_windows and self._windows_toasts_ok:
@@ -211,7 +241,7 @@ class Notifier:
                     toast
                 )
 
-                shown = True
+                return
 
             except Exception as e:
 
@@ -220,7 +250,7 @@ class Notifier:
                 )
 
         # =================================================
-        # WINOTIFY
+        # 2. WINOTIFY FALLBACK
         # =================================================
 
         if self.ctx.is_windows and self._winotify_ok:
@@ -248,7 +278,7 @@ class Notifier:
 
                 n.show()
 
-                shown = True
+                return
 
             except Exception as e:
 
@@ -257,7 +287,7 @@ class Notifier:
                 )
 
         # =================================================
-        # TRAY NOTIFY
+        # 3. TRAY FALLBACK
         # =================================================
 
         tray = getattr(
@@ -276,7 +306,8 @@ class Notifier:
                 )
 
                 if ok:
-                    shown = True
+
+                    return
 
             except Exception as e:
 
@@ -285,7 +316,7 @@ class Notifier:
                 )
 
         # =================================================
-        # LINUX
+        # 4. LINUX FALLBACK
         # =================================================
 
         if self.ctx.is_linux:
@@ -303,7 +334,7 @@ class Notifier:
                     stderr=subprocess.DEVNULL,
                 )
 
-                shown = True
+                return
 
             except Exception as e:
 
@@ -312,19 +343,17 @@ class Notifier:
                 )
 
         # =================================================
-        # FALLBACK
+        # 5. ВСТРОЕННОЕ УВЕДОМЛЕНИЕ
         # =================================================
 
-        if not shown:
+        print(
+            f"{title}: {msg}"
+        )
 
-            print(
-                f"{title}: {msg}"
-            )
-
-            self._fallback_popup(
-                title,
-                msg
-            )
+        self._fallback_popup(
+            title,
+            msg
+        )
 
     def _fallback_popup(
         self,
@@ -433,7 +462,6 @@ class Notifier:
             3500,
             popup.destroy
         )
-
 
 # =====================================================
 # HOTKEYS
@@ -787,24 +815,72 @@ class CommandsWindow(ctk.CTkToplevel):
             master
         )
 
+        self.master_window = master
         self.commands_path = commands_path
         self.commands_data = {}
+        self.filtered_commands = []
+        self.active_category = "Все"
+        self.selected_command_name = None
 
         self.title(
             "Команды AAYA"
         )
 
         self.geometry(
-            "940x650"
+            "980x620"
         )
 
         self.minsize(
-            840,
-            540
+            850,
+            520
         )
+
+        # =================================================
+        # Чтобы окно НЕ уходило под главное
+        # =================================================
+
+        try:
+            self.transient(
+                master
+            )
+        except Exception:
+            pass
+
+        try:
+            self.lift()
+            self.focus_force()
+            self.attributes(
+                "-topmost",
+                True
+            )
+
+            self.after(
+                300,
+                lambda:
+                self.attributes(
+                    "-topmost",
+                    False
+                )
+            )
+
+        except Exception:
+            pass
+
+        try:
+            self.protocol(
+                "WM_DELETE_WINDOW",
+                self.destroy
+            )
+        except Exception:
+            pass
 
         self.grid_columnconfigure(
             0,
+            weight=0
+        )
+
+        self.grid_columnconfigure(
+            1,
             weight=1
         )
 
@@ -813,91 +889,101 @@ class CommandsWindow(ctk.CTkToplevel):
             weight=1
         )
 
-        self.header = ctk.CTkLabel(
+        # =================================================
+        # HEADER
+        # =================================================
+
+        header = ctk.CTkFrame(
             self,
+            fg_color="transparent"
+        )
+
+        header.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            padx=18,
+            pady=(16, 8),
+            sticky="ew"
+        )
+
+        header.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        title = ctk.CTkLabel(
+            header,
             text="Команды AAYA",
             font=ctk.CTkFont(
-                size=24,
+                size=25,
                 weight="bold"
             )
         )
 
-        self.header.grid(
+        title.grid(
             row=0,
             column=0,
-            padx=18,
-            pady=(16, 4),
             sticky="w"
         )
 
-        self.subtitle = ctk.CTkLabel(
+        close_btn = ctk.CTkButton(
+            header,
+            text="Закрыть",
+            width=110,
+            height=34,
+            corner_radius=12,
+            command=self.destroy
+        )
+
+        close_btn.grid(
+            row=0,
+            column=1,
+            sticky="e"
+        )
+
+        subtitle = ctk.CTkLabel(
             self,
-            text="Поиск по командам, категориям и примерам фраз.",
+            text="Выбери категорию или найди команду по названию, примеру или фразе.",
             font=ctk.CTkFont(
-                size=14
+                size=13
             ),
             text_color="#A8A8A8"
         )
 
-        self.subtitle.grid(
+        subtitle.grid(
             row=1,
             column=0,
+            columnspan=2,
             padx=18,
             pady=(0, 10),
             sticky="w"
         )
 
-        top = ctk.CTkFrame(
+        # =================================================
+        # LEFT PANEL: CATEGORIES
+        # =================================================
+
+        self.left_panel = ctk.CTkFrame(
             self,
-            fg_color="transparent"
-        )
-
-        top.grid(
-            row=2,
-            column=0,
-            padx=18,
-            pady=(0, 12),
-            sticky="nsew"
-        )
-
-        top.grid_columnconfigure(
-            0,
-            weight=0
-        )
-
-        top.grid_columnconfigure(
-            1,
-            weight=1
-        )
-
-        top.grid_rowconfigure(
-            0,
-            weight=1
-        )
-
-        # =========================
-        # LEFT PANEL
-        # =========================
-
-        left = ctk.CTkFrame(
-            top,
-            width=230,
+            width=220,
             corner_radius=16
         )
 
-        left.grid(
-            row=0,
+        self.left_panel.grid(
+            row=2,
             column=0,
-            sticky="ns",
-            padx=(0, 12)
+            padx=(18, 10),
+            pady=(0, 18),
+            sticky="ns"
         )
 
-        left.grid_propagate(
+        self.left_panel.grid_propagate(
             False
         )
 
         ctk.CTkLabel(
-            left,
+            self.left_panel,
             text="Категории",
             font=ctk.CTkFont(
                 size=17,
@@ -910,7 +996,7 @@ class CommandsWindow(ctk.CTkToplevel):
         )
 
         self.category_frame = ctk.CTkScrollableFrame(
-            left,
+            self.left_panel,
             fg_color="transparent"
         )
 
@@ -918,36 +1004,42 @@ class CommandsWindow(ctk.CTkToplevel):
             fill="both",
             expand=True,
             padx=8,
-            pady=(0, 8)
+            pady=(0, 10)
         )
 
-        # =========================
+        # =================================================
         # RIGHT PANEL
-        # =========================
+        # =================================================
 
-        right = ctk.CTkFrame(
-            top,
+        self.right_panel = ctk.CTkFrame(
+            self,
             corner_radius=16
         )
 
-        right.grid(
-            row=0,
+        self.right_panel.grid(
+            row=2,
             column=1,
+            padx=(0, 18),
+            pady=(0, 18),
             sticky="nsew"
         )
 
-        right.grid_columnconfigure(
+        self.right_panel.grid_columnconfigure(
             0,
             weight=1
         )
 
-        right.grid_rowconfigure(
+        self.right_panel.grid_rowconfigure(
             2,
             weight=1
         )
 
+        # =================================================
+        # SEARCH
+        # =================================================
+
         search_row = ctk.CTkFrame(
-            right,
+            self.right_panel,
             fg_color="transparent"
         )
 
@@ -966,7 +1058,9 @@ class CommandsWindow(ctk.CTkToplevel):
 
         self.search_entry = ctk.CTkEntry(
             search_row,
-            placeholder_text="Поиск команды: ютуб, задача, пароль, время..."
+            height=38,
+            corner_radius=12,
+            placeholder_text="Поиск: ютуб, задача, время, пароль, перевод..."
         )
 
         self.search_entry.grid(
@@ -978,24 +1072,25 @@ class CommandsWindow(ctk.CTkToplevel):
 
         self.search_entry.bind(
             "<KeyRelease>",
-            lambda event:
-            self._render_commands()
+            self._on_search_change
         )
 
-        self.clear_btn = ctk.CTkButton(
+        clear_btn = ctk.CTkButton(
             search_row,
             text="Очистить",
             width=100,
+            height=38,
+            corner_radius=12,
             command=self._clear_search
         )
 
-        self.clear_btn.grid(
+        clear_btn.grid(
             row=0,
             column=1
         )
 
         self.info_label = ctk.CTkLabel(
-            right,
+            self.right_panel,
             text="",
             font=ctk.CTkFont(
                 size=13
@@ -1011,12 +1106,16 @@ class CommandsWindow(ctk.CTkToplevel):
             sticky="w"
         )
 
-        self.commands_frame = ctk.CTkScrollableFrame(
-            right,
-            corner_radius=12
+        # =================================================
+        # CONTENT SPLIT
+        # =================================================
+
+        content = ctk.CTkFrame(
+            self.right_panel,
+            fg_color="transparent"
         )
 
-        self.commands_frame.grid(
+        content.grid(
             row=2,
             column=0,
             padx=14,
@@ -1024,11 +1123,127 @@ class CommandsWindow(ctk.CTkToplevel):
             sticky="nsew"
         )
 
-        self.active_category = "Все"
+        content.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        content.grid_columnconfigure(
+            1,
+            weight=1
+        )
+
+        content.grid_rowconfigure(
+            0,
+            weight=1
+        )
+
+        # =================================================
+        # COMMAND LIST
+        # =================================================
+
+        self.commands_list_frame = ctk.CTkScrollableFrame(
+            content,
+            corner_radius=14
+        )
+
+        self.commands_list_frame.grid(
+            row=0,
+            column=0,
+            padx=(0, 10),
+            sticky="nsew"
+        )
+
+        # =================================================
+        # DETAILS PANEL
+        # =================================================
+
+        self.details_frame = ctk.CTkFrame(
+            content,
+            corner_radius=14
+        )
+
+        self.details_frame.grid(
+            row=0,
+            column=1,
+            sticky="nsew"
+        )
+
+        self.details_frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.details_title = ctk.CTkLabel(
+            self.details_frame,
+            text="Выбери команду",
+            font=ctk.CTkFont(
+                size=21,
+                weight="bold"
+            ),
+            anchor="w"
+        )
+
+        self.details_title.grid(
+            row=0,
+            column=0,
+            padx=16,
+            pady=(16, 4),
+            sticky="ew"
+        )
+
+        self.details_category = ctk.CTkLabel(
+            self.details_frame,
+            text="",
+            font=ctk.CTkFont(
+                size=12
+            ),
+            text_color="#8E8E8E",
+            anchor="w"
+        )
+
+        self.details_category.grid(
+            row=1,
+            column=0,
+            padx=16,
+            pady=(0, 12),
+            sticky="ew"
+        )
+
+        self.details_textbox = ctk.CTkTextbox(
+            self.details_frame,
+            wrap="word",
+            corner_radius=12
+        )
+
+        self.details_textbox.grid(
+            row=2,
+            column=0,
+            padx=16,
+            pady=(0, 16),
+            sticky="nsew"
+        )
+
+        self.details_frame.grid_rowconfigure(
+            2,
+            weight=1
+        )
+
+        self.details_textbox.configure(
+            state="disabled"
+        )
+
+        # =================================================
+        # LOAD
+        # =================================================
 
         self._load_commands()
         self._render_categories()
-        self._render_commands()
+        self._apply_filter()
+
+    # =====================================================
+    # LOAD DATA
+    # =====================================================
 
     def _load_commands(
         self
@@ -1052,8 +1267,12 @@ class CommandsWindow(ctk.CTkToplevel):
 
             messagebox.showerror(
                 "AAYA",
-                f"Не удалось загрузить команды:\n{e}"
+                f"Не удалось загрузить commands.json:\n{e}"
             )
+
+    # =====================================================
+    # CATEGORIES
+    # =====================================================
 
     def _get_categories(
         self
@@ -1107,48 +1326,6 @@ class CommandsWindow(ctk.CTkToplevel):
 
         return result
 
-    def _render_categories(
-        self
-    ):
-
-        for widget in self.category_frame.winfo_children():
-
-            widget.destroy()
-
-        for category in self._get_categories():
-
-            count = self._count_category(
-                category
-            )
-
-            text = (
-                f"{category}  ·  {count}"
-                if category != "Все"
-                else f"Все команды  ·  {count}"
-            )
-
-            btn = ctk.CTkButton(
-                self.category_frame,
-                text=text,
-                anchor="w",
-                height=38,
-                fg_color=(
-                    "#1F6AA5"
-                    if category == self.active_category
-                    else "transparent"
-                ),
-                hover_color="#2B2B2B",
-                command=lambda c=category:
-                self._select_category(
-                    c
-                )
-            )
-
-            btn.pack(
-                fill="x",
-                pady=4
-            )
-
     def _count_category(
         self,
         category: str
@@ -1173,6 +1350,49 @@ class CommandsWindow(ctk.CTkToplevel):
 
         return count
 
+    def _render_categories(
+        self
+    ):
+
+        for widget in self.category_frame.winfo_children():
+
+            widget.destroy()
+
+        for category in self._get_categories():
+
+            count = self._count_category(
+                category
+            )
+
+            text = (
+                f"Все команды  ·  {count}"
+                if category == "Все"
+                else f"{category}  ·  {count}"
+            )
+
+            btn = ctk.CTkButton(
+                self.category_frame,
+                text=text,
+                height=38,
+                anchor="w",
+                corner_radius=12,
+                fg_color=(
+                    "#1F6AA5"
+                    if category == self.active_category
+                    else "transparent"
+                ),
+                hover_color="#2B2B2B",
+                command=lambda c=category:
+                self._select_category(
+                    c
+                )
+            )
+
+            btn.pack(
+                fill="x",
+                pady=4
+            )
+
     def _select_category(
         self,
         category: str
@@ -1181,7 +1401,18 @@ class CommandsWindow(ctk.CTkToplevel):
         self.active_category = category
 
         self._render_categories()
-        self._render_commands()
+        self._apply_filter()
+
+    # =====================================================
+    # FILTER
+    # =====================================================
+
+    def _on_search_change(
+        self,
+        event=None
+    ):
+
+        self._apply_filter()
 
     def _clear_search(
         self
@@ -1192,7 +1423,7 @@ class CommandsWindow(ctk.CTkToplevel):
             "end"
         )
 
-        self._render_commands()
+        self._apply_filter()
 
     def _matches_search(
         self,
@@ -1220,13 +1451,13 @@ class CommandsWindow(ctk.CTkToplevel):
             ),
             " ".join(
                 info.get(
-                    "phrases",
+                    "examples",
                     []
                 )
             ),
             " ".join(
                 info.get(
-                    "examples",
+                    "phrases",
                     []
                 )
             )
@@ -1238,13 +1469,9 @@ class CommandsWindow(ctk.CTkToplevel):
 
         return query.lower() in haystack
 
-    def _render_commands(
+    def _apply_filter(
         self
     ):
-
-        for widget in self.commands_frame.winfo_children():
-
-            widget.destroy()
 
         query = (
             self.search_entry.get()
@@ -1282,17 +1509,46 @@ class CommandsWindow(ctk.CTkToplevel):
                 )
             )
 
+        self.filtered_commands = visible
+
         self.info_label.configure(
             text=f"Найдено команд: {len(visible)}"
         )
 
-        if not visible:
+        self._render_command_list()
+
+        if visible:
+
+            first_name, first_info = visible[0]
+
+            self._show_details(
+                first_name,
+                first_info
+            )
+
+        else:
+
+            self._clear_details()
+
+    # =====================================================
+    # COMMAND LIST
+    # =====================================================
+
+    def _render_command_list(
+        self
+    ):
+
+        for widget in self.commands_list_frame.winfo_children():
+
+            widget.destroy()
+
+        if not self.filtered_commands:
 
             empty = ctk.CTkLabel(
-                self.commands_frame,
-                text="Ничего не найдено. Попробуй другое слово.",
+                self.commands_list_frame,
+                text="Ничего не найдено",
                 font=ctk.CTkFont(
-                    size=15
+                    size=14
                 ),
                 text_color="#A8A8A8"
             )
@@ -1303,34 +1559,97 @@ class CommandsWindow(ctk.CTkToplevel):
 
             return
 
-        for command_name, info in visible:
+        for command_name, info in self.filtered_commands:
 
-            self._add_command_card(
-                command_name,
-                info
+            title = info.get(
+                "title",
+                command_name
             )
 
-    def _add_command_card(
+            category = info.get(
+                "category",
+                "Другое"
+            )
+
+            examples = info.get(
+                "examples",
+                []
+            )
+
+            example_text = (
+                examples[0]
+                if examples
+                else command_name
+            )
+
+            card = ctk.CTkButton(
+                self.commands_list_frame,
+                text=f"{title}\n{category} · {example_text}",
+                anchor="w",
+                height=66,
+                corner_radius=12,
+                fg_color=(
+                    "#1F6AA5"
+                    if command_name == self.selected_command_name
+                    else "#2B2B2B"
+                ),
+                hover_color="#33383F",
+                command=lambda n=command_name, i=info:
+                self._show_details(
+                    n,
+                    i
+                )
+            )
+
+            card.pack(
+                fill="x",
+                padx=4,
+                pady=5
+            )
+
+    # =====================================================
+    # DETAILS
+    # =====================================================
+
+    def _clear_details(
+        self
+    ):
+
+        self.selected_command_name = None
+
+        self.details_title.configure(
+            text="Ничего не найдено"
+        )
+
+        self.details_category.configure(
+            text=""
+        )
+
+        self.details_textbox.configure(
+            state="normal"
+        )
+
+        self.details_textbox.delete(
+            "1.0",
+            "end"
+        )
+
+        self.details_textbox.insert(
+            "1.0",
+            "Попробуй изменить запрос или выбрать другую категорию."
+        )
+
+        self.details_textbox.configure(
+            state="disabled"
+        )
+
+    def _show_details(
         self,
         command_name: str,
         info: dict
     ):
 
-        card = ctk.CTkFrame(
-            self.commands_frame,
-            corner_radius=14
-        )
-
-        card.pack(
-            fill="x",
-            padx=4,
-            pady=7
-        )
-
-        card.grid_columnconfigure(
-            0,
-            weight=1
-        )
+        self.selected_command_name = command_name
 
         title = info.get(
             "title",
@@ -1347,132 +1666,114 @@ class CommandsWindow(ctk.CTkToplevel):
             ""
         )
 
-        title_label = ctk.CTkLabel(
-            card,
-            text=title,
-            font=ctk.CTkFont(
-                size=17,
-                weight="bold"
-            ),
-            anchor="w"
+        action = info.get(
+            "action",
+            ""
         )
-
-        title_label.grid(
-            row=0,
-            column=0,
-            padx=14,
-            pady=(12, 2),
-            sticky="ew"
-        )
-
-        meta_label = ctk.CTkLabel(
-            card,
-            text=f"{category}  ·  {command_name}",
-            font=ctk.CTkFont(
-                size=12
-            ),
-            text_color="#8E8E8E",
-            anchor="w"
-        )
-
-        meta_label.grid(
-            row=1,
-            column=0,
-            padx=14,
-            pady=(0, 6),
-            sticky="ew"
-        )
-
-        if description:
-
-            desc_label = ctk.CTkLabel(
-                card,
-                text=description,
-                font=ctk.CTkFont(
-                    size=13
-                ),
-                text_color="#C8C8C8",
-                anchor="w",
-                justify="left",
-                wraplength=610
-            )
-
-            desc_label.grid(
-                row=2,
-                column=0,
-                padx=14,
-                pady=(0, 8),
-                sticky="ew"
-            )
 
         examples = info.get(
             "examples",
             []
         )
 
-        if examples:
-
-            examples_text = "Примеры: " + "   |   ".join(
-                examples[:3]
-            )
-
-            examples_label = ctk.CTkLabel(
-                card,
-                text=examples_text,
-                font=ctk.CTkFont(
-                    size=13
-                ),
-                text_color="#7FD1FF",
-                anchor="w",
-                justify="left",
-                wraplength=610
-            )
-
-            examples_label.grid(
-                row=3,
-                column=0,
-                padx=14,
-                pady=(0, 8),
-                sticky="ew"
-            )
-
         phrases = info.get(
             "phrases",
             []
         )
 
+        self.details_title.configure(
+            text=title
+        )
+
+        self.details_category.configure(
+            text=f"{category} · {command_name}"
+        )
+
+        lines = []
+
+        if description:
+
+            lines.append(
+                "Описание:"
+            )
+
+            lines.append(
+                description
+            )
+
+            lines.append(
+                ""
+            )
+
+        if examples:
+
+            lines.append(
+                "Примеры:"
+            )
+
+            for example in examples:
+
+                lines.append(
+                    f"• {example}"
+                )
+
+            lines.append(
+                ""
+            )
+
         if phrases:
 
-            phrase_preview = ", ".join(
-                phrases[:8]
+            lines.append(
+                "Можно сказать:"
             )
 
-            if len(
-                phrases
-            ) > 8:
+            for phrase in phrases:
 
-                phrase_preview += f" и ещё {len(phrases) - 8}"
+                lines.append(
+                    f"• {phrase}"
+                )
 
-            phrases_label = ctk.CTkLabel(
-                card,
-                text=f"Фразы: {phrase_preview}",
-                font=ctk.CTkFont(
-                    size=12
-                ),
-                text_color="#A8A8A8",
-                anchor="w",
-                justify="left",
-                wraplength=610
+            lines.append(
+                ""
             )
 
-            phrases_label.grid(
-                row=4,
-                column=0,
-                padx=14,
-                pady=(0, 12),
-                sticky="ew"
+        if action:
+
+            lines.append(
+                "Действие:"
             )
 
+            lines.append(
+                action
+            )
+
+        text = "\n".join(
+            lines
+        ).strip()
+
+        if not text:
+
+            text = "Для этой команды нет описания."
+
+        self.details_textbox.configure(
+            state="normal"
+        )
+
+        self.details_textbox.delete(
+            "1.0",
+            "end"
+        )
+
+        self.details_textbox.insert(
+            "1.0",
+            text
+        )
+
+        self.details_textbox.configure(
+            state="disabled"
+        )
+
+        self._render_command_list()
 
 # =====================================================
 # MAIN GUI
@@ -2476,12 +2777,49 @@ class AssistantGUI:
         self
     ):
 
-        win = CommandsWindow(
+        # Если окно команд уже открыто — просто поднимаем его наверх,
+        # а не создаём новое. Это убирает лаги и дубли окон.
+        if hasattr(
+            self,
+            "_commands_window"
+        ):
+
+            try:
+
+                if self._commands_window.winfo_exists():
+
+                    self._commands_window.lift()
+                    self._commands_window.focus_force()
+
+                    try:
+                        self._commands_window.attributes(
+                            "-topmost",
+                            True
+                        )
+
+                        self._commands_window.after(
+                            250,
+                            lambda:
+                            self._commands_window.attributes(
+                                "-topmost",
+                                False
+                            )
+                        )
+
+                    except Exception:
+                        pass
+
+                    return
+
+            except Exception:
+                pass
+
+        self._commands_window = CommandsWindow(
             self.app_window,
             self.commands_path
         )
 
-        win.focus()
+        self._commands_window.focus_force()
 
     # =====================================================
     # LOAD COMMANDS
