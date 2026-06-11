@@ -26,7 +26,9 @@ HOTKEY = "ctrl+shift+space"
 # RESOURCE PATH
 # =====================================================
 
-def resource_path(relative_path: str) -> str:
+def resource_path(
+    relative_path: str
+) -> str:
 
     if hasattr(
         sys,
@@ -85,6 +87,7 @@ class Notifier:
         self.ctx = ctx
         self.app_id = app_id
         self.root = root
+        self.tray = None
 
         self._windows_toasts_ok = False
         self._WindowsToaster = None
@@ -142,10 +145,6 @@ class Notifier:
                     f"winotify недоступен: {e}"
                 )
 
-    # =====================================================
-    # PUBLIC METHOD
-    # =====================================================
-
     def toast(
         self,
         title: str,
@@ -159,9 +158,6 @@ class Notifier:
         if not msg:
             return
 
-        # ВАЖНО:
-        # Windows toast должен вызываться из главного GUI-потока.
-        # Поэтому если есть root, отправляем показ через root.after().
         if self.root:
 
             try:
@@ -188,18 +184,16 @@ class Notifier:
             msg
         )
 
-    # =====================================================
-    # REAL TOAST IMPLEMENTATION
-    # =====================================================
-
     def _toast_main_thread(
         self,
         title: str,
         msg: str
     ) -> None:
 
+        shown = False
+
         # =================================================
-        # WINDOWS: windows-toasts
+        # WINDOWS TOASTS
         # =================================================
 
         if self.ctx.is_windows and self._windows_toasts_ok:
@@ -217,7 +211,7 @@ class Notifier:
                     toast
                 )
 
-                return
+                shown = True
 
             except Exception as e:
 
@@ -226,7 +220,7 @@ class Notifier:
                 )
 
         # =================================================
-        # WINDOWS: winotify fallback
+        # WINOTIFY
         # =================================================
 
         if self.ctx.is_windows and self._winotify_ok:
@@ -254,7 +248,7 @@ class Notifier:
 
                 n.show()
 
-                return
+                shown = True
 
             except Exception as e:
 
@@ -263,7 +257,35 @@ class Notifier:
                 )
 
         # =================================================
-        # LINUX NOTIFICATION
+        # TRAY NOTIFY
+        # =================================================
+
+        tray = getattr(
+            self,
+            "tray",
+            None
+        )
+
+        if tray:
+
+            try:
+
+                ok = tray.notify(
+                    title,
+                    msg
+                )
+
+                if ok:
+                    shown = True
+
+            except Exception as e:
+
+                print(
+                    f"Ошибка уведомления через трей: {e}"
+                )
+
+        # =================================================
+        # LINUX
         # =================================================
 
         if self.ctx.is_linux:
@@ -281,7 +303,7 @@ class Notifier:
                     stderr=subprocess.DEVNULL,
                 )
 
-                return
+                shown = True
 
             except Exception as e:
 
@@ -290,21 +312,19 @@ class Notifier:
                 )
 
         # =================================================
-        # FALLBACK POPUP INSIDE APP
+        # FALLBACK
         # =================================================
 
-        print(
-            f"{title}: {msg}"
-        )
+        if not shown:
 
-        self._fallback_popup(
-            title,
-            msg
-        )
+            print(
+                f"{title}: {msg}"
+            )
 
-    # =====================================================
-    # FALLBACK POPUP
-    # =====================================================
+            self._fallback_popup(
+                title,
+                msg
+            )
 
     def _fallback_popup(
         self,
@@ -334,93 +354,85 @@ class Notifier:
         msg: str
     ):
 
+        popup = ctk.CTkToplevel(
+            self.root
+        )
+
+        popup.title(
+            title
+        )
+
+        popup.geometry(
+            "370x130"
+        )
+
+        popup.resizable(
+            False,
+            False
+        )
+
+        popup.attributes(
+            "-topmost",
+            True
+        )
+
         try:
 
-            popup = ctk.CTkToplevel(
-                self.root
-            )
+            screen_w = popup.winfo_screenwidth()
+            screen_h = popup.winfo_screenheight()
 
-            popup.title(
-                title
-            )
+            x = screen_w - 400
+            y = screen_h - 200
 
             popup.geometry(
-                "360x120"
+                f"370x130+{x}+{y}"
             )
 
-            popup.resizable(
-                False,
-                False
-            )
+        except Exception:
+            pass
 
-            popup.attributes(
-                "-topmost",
-                True
-            )
+        frame = ctk.CTkFrame(
+            popup,
+            corner_radius=16
+        )
 
-            try:
+        frame.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=10
+        )
 
-                screen_w = popup.winfo_screenwidth()
-                screen_h = popup.winfo_screenheight()
+        ctk.CTkLabel(
+            frame,
+            text=title,
+            font=ctk.CTkFont(
+                size=16,
+                weight="bold"
+            ),
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=14,
+            pady=(12, 4)
+        )
 
-                x = screen_w - 390
-                y = screen_h - 180
+        ctk.CTkLabel(
+            frame,
+            text=msg,
+            wraplength=320,
+            justify="left",
+            anchor="w"
+        ).pack(
+            fill="x",
+            padx=14,
+            pady=(0, 10)
+        )
 
-                popup.geometry(
-                    f"360x120+{x}+{y}"
-                )
-
-            except Exception:
-                pass
-
-            frame = ctk.CTkFrame(
-                popup,
-                corner_radius=14
-            )
-
-            frame.pack(
-                fill="both",
-                expand=True,
-                padx=10,
-                pady=10
-            )
-
-            ctk.CTkLabel(
-                frame,
-                text=title,
-                font=ctk.CTkFont(
-                    size=16,
-                    weight="bold"
-                ),
-                anchor="w"
-            ).pack(
-                fill="x",
-                padx=12,
-                pady=(10, 2)
-            )
-
-            ctk.CTkLabel(
-                frame,
-                text=msg,
-                wraplength=320,
-                anchor="w",
-                justify="left"
-            ).pack(
-                fill="x",
-                padx=12,
-                pady=(0, 10)
-            )
-
-            popup.after(
-                3500,
-                popup.destroy
-            )
-
-        except Exception as e:
-
-            print(
-                f"Ошибка fallback-уведомления: {e}"
-            )
+        popup.after(
+            3500,
+            popup.destroy
+        )
 
 
 # =====================================================
@@ -602,7 +614,7 @@ class Tray:
                     56,
                     56
                 ),
-                radius=12,
+                radius=14,
                 outline=(
                     0,
                     180,
@@ -614,7 +626,7 @@ class Tray:
 
             d.text(
                 (
-                    25,
+                    24,
                     18
                 ),
                 "A",
@@ -714,6 +726,35 @@ class Tray:
                 f"Ошибка выхода из трея: {e}"
             )
 
+    def notify(
+        self,
+        title: str,
+        msg: str
+    ) -> bool:
+
+        if not self._icon:
+            return False
+
+        if not self.started:
+            return False
+
+        try:
+
+            self._icon.notify(
+                msg,
+                title
+            )
+
+            return True
+
+        except Exception as e:
+
+            print(
+                f"Не удалось показать уведомление трея: {e}"
+            )
+
+            return False
+
     def stop(
         self
     ):
@@ -754,12 +795,12 @@ class CommandsWindow(ctk.CTkToplevel):
         )
 
         self.geometry(
-            "920x620"
+            "940x650"
         )
 
         self.minsize(
-            820,
-            520
+            840,
+            540
         )
 
         self.grid_columnconfigure(
@@ -791,7 +832,7 @@ class CommandsWindow(ctk.CTkToplevel):
 
         self.subtitle = ctk.CTkLabel(
             self,
-            text="Здесь собраны команды, которые можно говорить естественным языком.",
+            text="Поиск по командам, категориям и примерам фраз.",
             font=ctk.CTkFont(
                 size=14
             ),
@@ -841,7 +882,7 @@ class CommandsWindow(ctk.CTkToplevel):
         left = ctk.CTkFrame(
             top,
             width=230,
-            corner_radius=14
+            corner_radius=16
         )
 
         left.grid(
@@ -886,7 +927,7 @@ class CommandsWindow(ctk.CTkToplevel):
 
         right = ctk.CTkFrame(
             top,
-            corner_radius=14
+            corner_radius=16
         )
 
         right.grid(
@@ -925,7 +966,7 @@ class CommandsWindow(ctk.CTkToplevel):
 
         self.search_entry = ctk.CTkEntry(
             search_row,
-            placeholder_text="Поиск команды: например, ютуб, задача, время, перевод..."
+            placeholder_text="Поиск команды: ютуб, задача, пароль, время..."
         )
 
         self.search_entry.grid(
@@ -1308,7 +1349,7 @@ class CommandsWindow(ctk.CTkToplevel):
 
         title_label = ctk.CTkLabel(
             card,
-            text=f"{title}",
+            text=title,
             font=ctk.CTkFont(
                 size=17,
                 weight="bold"
@@ -1432,6 +1473,7 @@ class CommandsWindow(ctk.CTkToplevel):
                 sticky="ew"
             )
 
+
 # =====================================================
 # MAIN GUI
 # =====================================================
@@ -1487,6 +1529,8 @@ class AssistantGUI:
 
         self._closing = False
 
+        self._system_lines = []
+
         self._build_ui()
 
         self.tray = Tray(
@@ -1496,17 +1540,18 @@ class AssistantGUI:
         )
 
         self.tray_available = self.tray.start()
+        self.notifier.tray = self.tray
 
         if self.tray_available:
 
-            self._log(
-                "Фоновый режим: трей запущен"
+            self._add_system_status(
+                "Трей запущен"
             )
 
         else:
 
-            self._log(
-                "Фоновый режим: трей недоступен, окно будет только сворачиваться"
+            self._add_system_status(
+                "Трей недоступен"
             )
 
         if self.hotkeys.available:
@@ -1518,28 +1563,30 @@ class AssistantGUI:
 
             if ok:
 
-                self._log(
-                    f"Hotkey: {HOTKEY} активен"
+                self._add_system_status(
+                    f"Hotkey: {HOTKEY}"
                 )
 
             else:
 
-                self._log(
-                    f"Hotkey: не удалось зарегистрировать {HOTKEY}"
+                self._add_system_status(
+                    f"Hotkey не зарегистрирован: {HOTKEY}"
                 )
 
         else:
 
-            self._log(
-                "Hotkey: недоступен (установи пакет keyboard)"
+            self._add_system_status(
+                "Hotkey недоступен"
             )
 
-        self._log(
-            f"Файл команд: {self.commands_path}"
+        self._add_system_status(
+            f"ОС: {self.ctx.os_name.capitalize()}"
         )
 
-        self._log(
-            f"ОС: {self.ctx.os_name.capitalize()}"
+        self._add_assistant_message(
+            "Привет! Я AAYA.\n\n"
+            "Я могу открывать приложения и сайты, создавать задачи и заметки, "
+            "считать, переводить, запускать таймер и выполнять голосовые команды."
         )
 
         if hasattr(
@@ -1602,89 +1649,333 @@ class AssistantGUI:
             weight=1
         )
 
-        main = ctk.CTkFrame(
-            self.root
+        self.main = ctk.CTkFrame(
+            self.root,
+            corner_radius=22
         )
 
-        main.grid(
+        self.main.grid(
             row=0,
             column=0,
-            padx=14,
-            pady=14,
+            padx=16,
+            pady=16,
             sticky="nsew"
         )
 
-        main.grid_columnconfigure(
+        self.main.grid_columnconfigure(
             0,
             weight=1
         )
 
-        main.grid_rowconfigure(
-            1,
+        self.main.grid_rowconfigure(
+            2,
             weight=1
         )
 
-        header = ctk.CTkLabel(
-            main,
-            text="AAYA",
+        # =================================================
+        # HEADER
+        # =================================================
+
+        self.header = ctk.CTkFrame(
+            self.main,
+            corner_radius=18,
+            height=92
+        )
+
+        self.header.grid(
+            row=0,
+            column=0,
+            padx=14,
+            pady=(14, 10),
+            sticky="ew"
+        )
+
+        self.header.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.header.grid_columnconfigure(
+            1,
+            weight=0
+        )
+
+        left_header = ctk.CTkFrame(
+            self.header,
+            fg_color="transparent"
+        )
+
+        left_header.grid(
+            row=0,
+            column=0,
+            padx=18,
+            pady=14,
+            sticky="w"
+        )
+
+        self.title_label = ctk.CTkLabel(
+            left_header,
+            text="AAYA Assistant",
             font=ctk.CTkFont(
-                size=22,
+                size=26,
                 weight="bold"
             )
         )
 
-        header.grid(
+        self.title_label.pack(
+            anchor="w"
+        )
+
+        self.subtitle_label = ctk.CTkLabel(
+            left_header,
+            text="Голосовой помощник для команд, задач и заметок",
+            font=ctk.CTkFont(
+                size=13
+            ),
+            text_color="#A8A8A8"
+        )
+
+        self.subtitle_label.pack(
+            anchor="w",
+            pady=(2, 0)
+        )
+
+        right_header = ctk.CTkFrame(
+            self.header,
+            fg_color="transparent"
+        )
+
+        right_header.grid(
             row=0,
-            column=0,
-            padx=12,
-            pady=(8, 6),
-            sticky="n"
+            column=1,
+            padx=18,
+            pady=14,
+            sticky="e"
         )
 
-        self.logbox = ctk.CTkTextbox(
-            main,
-            wrap="word"
+        self.status_badge = ctk.CTkLabel(
+            right_header,
+            text="● Готов",
+            font=ctk.CTkFont(
+                size=13,
+                weight="bold"
+            ),
+            text_color="#7CFF95"
         )
 
-        self.logbox.grid(
+        self.status_badge.pack(
+            anchor="e"
+        )
+
+        self.mic_badge = ctk.CTkLabel(
+            right_header,
+            text="Микрофон: выкл",
+            font=ctk.CTkFont(
+                size=12
+            ),
+            text_color="#B7B7B7"
+        )
+
+        self.mic_badge.pack(
+            anchor="e",
+            pady=(6, 0)
+        )
+
+        self.system_status_label = ctk.CTkLabel(
+            right_header,
+            text="",
+            font=ctk.CTkFont(
+                size=11
+            ),
+            text_color="#858585"
+        )
+
+        self.system_status_label.pack(
+            anchor="e",
+            pady=(6, 0)
+        )
+
+        # =================================================
+        # QUICK ACTIONS
+        # =================================================
+
+        self.quick_actions = ctk.CTkFrame(
+            self.main,
+            fg_color="transparent"
+        )
+
+        self.quick_actions.grid(
             row=1,
             column=0,
-            padx=12,
-            pady=(0, 12),
-            sticky="nsew"
-        )
-
-        self.logbox.configure(
-            state="disabled"
-        )
-
-        bottom = ctk.CTkFrame(
-            main
-        )
-
-        bottom.grid(
-            row=2,
-            column=0,
-            padx=12,
+            padx=14,
             pady=(0, 10),
             sticky="ew"
         )
 
-        bottom.grid_columnconfigure(
+        for i in range(
+            5
+        ):
+
+            self.quick_actions.grid_columnconfigure(
+                i,
+                weight=1
+            )
+
+        self.quick_voice_btn = ctk.CTkButton(
+            self.quick_actions,
+            text="🎤 Слушать",
+            height=38,
+            corner_radius=14,
+            command=self.start_listening
+        )
+
+        self.quick_voice_btn.grid(
+            row=0,
+            column=0,
+            padx=(0, 8),
+            sticky="ew"
+        )
+
+        self.quick_task_btn = ctk.CTkButton(
+            self.quick_actions,
+            text="✅ Новая задача",
+            height=38,
+            corner_radius=14,
+            command=self._prefill_task
+        )
+
+        self.quick_task_btn.grid(
+            row=0,
+            column=1,
+            padx=(0, 8),
+            sticky="ew"
+        )
+
+        self.quick_note_btn = ctk.CTkButton(
+            self.quick_actions,
+            text="📝 Новая заметка",
+            height=38,
+            corner_radius=14,
+            command=self._prefill_note
+        )
+
+        self.quick_note_btn.grid(
+            row=0,
+            column=2,
+            padx=(0, 8),
+            sticky="ew"
+        )
+
+        self.quick_cmds_btn = ctk.CTkButton(
+            self.quick_actions,
+            text="📚 Команды",
+            height=38,
+            corner_radius=14,
+            command=self.open_commands_window
+        )
+
+        self.quick_cmds_btn.grid(
+            row=0,
+            column=3,
+            padx=(0, 8),
+            sticky="ew"
+        )
+
+        self.clear_chat_btn = ctk.CTkButton(
+            self.quick_actions,
+            text="🧹 Очистить чат",
+            height=38,
+            corner_radius=14,
+            fg_color="#3B3B3B",
+            hover_color="#4B4B4B",
+            command=self.clear_chat
+        )
+
+        self.clear_chat_btn.grid(
+            row=0,
+            column=4,
+            sticky="ew"
+        )
+
+        # =================================================
+        # CHAT AREA
+        # =================================================
+
+        self.chat_card = ctk.CTkFrame(
+            self.main,
+            corner_radius=20
+        )
+
+        self.chat_card.grid(
+            row=2,
+            column=0,
+            padx=14,
+            pady=(0, 10),
+            sticky="nsew"
+        )
+
+        self.chat_card.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.chat_card.grid_rowconfigure(
+            0,
+            weight=1
+        )
+
+        self.chat_frame = ctk.CTkScrollableFrame(
+            self.chat_card,
+            corner_radius=18
+        )
+
+        self.chat_frame.grid(
+            row=0,
+            column=0,
+            padx=10,
+            pady=10,
+            sticky="nsew"
+        )
+
+        self.chat_frame.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        # =================================================
+        # COMPOSER
+        # =================================================
+
+        self.bottom_card = ctk.CTkFrame(
+            self.main,
+            corner_radius=18
+        )
+
+        self.bottom_card.grid(
+            row=3,
+            column=0,
+            padx=14,
+            pady=(0, 14),
+            sticky="ew"
+        )
+
+        self.bottom_card.grid_columnconfigure(
             0,
             weight=1
         )
 
         self.entry = ctk.CTkEntry(
-            bottom,
-            placeholder_text="Введите команду и нажмите Enter…"
+            self.bottom_card,
+            height=44,
+            corner_radius=14,
+            placeholder_text="Напиши команду... Например: создай задачу завтра купить продукты"
         )
 
         self.entry.grid(
             row=0,
             column=0,
-            padx=0,
-            pady=(0, 10),
+            padx=12,
+            pady=(12, 10),
             sticky="ew"
         )
 
@@ -1693,29 +1984,33 @@ class AssistantGUI:
             self._on_enter
         )
 
-        btn_row = ctk.CTkFrame(
-            bottom,
+        actions_row = ctk.CTkFrame(
+            self.bottom_card,
             fg_color="transparent"
         )
 
-        btn_row.grid(
+        actions_row.grid(
             row=1,
             column=0,
+            padx=12,
+            pady=(0, 8),
             sticky="ew"
         )
 
-        btn_row.grid_columnconfigure(
-            (
-                0,
-                1,
-                2
-            ),
-            weight=1
-        )
+        for i in range(
+            3
+        ):
+
+            actions_row.grid_columnconfigure(
+                i,
+                weight=1
+            )
 
         self.btn_voice = ctk.CTkButton(
-            btn_row,
+            actions_row,
             text="🎤 Голосовая команда",
+            height=40,
+            corner_radius=14,
             command=self.start_listening
         )
 
@@ -1727,8 +2022,10 @@ class AssistantGUI:
         )
 
         self.btn_text = ctk.CTkButton(
-            btn_row,
-            text="➡ Выполни текст",
+            actions_row,
+            text="➜ Отправить",
+            height=40,
+            corner_radius=14,
             command=self.run_text_command
         )
 
@@ -1740,8 +2037,10 @@ class AssistantGUI:
         )
 
         self.btn_cmds = ctk.CTkButton(
-            btn_row,
+            actions_row,
             text="📄 Список команд",
+            height=40,
+            corner_radius=14,
             command=self.open_commands_window
         )
 
@@ -1751,30 +2050,31 @@ class AssistantGUI:
             sticky="ew"
         )
 
-        status_row = ctk.CTkFrame(
-            main,
+        footer = ctk.CTkFrame(
+            self.bottom_card,
             fg_color="transparent"
         )
 
-        status_row.grid(
-            row=3,
+        footer.grid(
+            row=2,
             column=0,
             padx=12,
-            pady=(0, 6),
+            pady=(0, 10),
             sticky="ew"
         )
 
-        status_row.grid_columnconfigure(
+        footer.grid_columnconfigure(
             0,
             weight=1
         )
 
         self.status = ctk.CTkLabel(
-            status_row,
+            footer,
             text="Статус: ожидание",
             font=ctk.CTkFont(
                 size=13
-            )
+            ),
+            text_color="#B0B0B0"
         )
 
         self.status.grid(
@@ -1783,32 +2083,39 @@ class AssistantGUI:
             sticky="w"
         )
 
-        self.mic_indicator = ctk.CTkLabel(
-            status_row,
-            text="● Микрофон: выкл",
-            font=ctk.CTkFont(
-                size=13
-            )
+        footer_right = ctk.CTkFrame(
+            footer,
+            fg_color="transparent"
         )
 
-        self.mic_indicator.grid(
+        footer_right.grid(
             row=0,
             column=1,
             sticky="e"
         )
 
+        self.hotkey_hint = ctk.CTkLabel(
+            footer_right,
+            text="Hotkey: Ctrl+Shift+Space",
+            font=ctk.CTkFont(
+                size=12
+            ),
+            text_color="#8E8E8E"
+        )
+
+        self.hotkey_hint.pack(
+            side="left",
+            padx=(0, 14)
+        )
+
         self.theme_switch = ctk.CTkSwitch(
-            main,
+            footer_right,
             text="Light / Dark",
             command=self.toggle_theme
         )
 
-        self.theme_switch.grid(
-            row=4,
-            column=0,
-            padx=12,
-            pady=(0, 2),
-            sticky="s"
+        self.theme_switch.pack(
+            side="left"
         )
 
         try:
@@ -1816,8 +2123,11 @@ class AssistantGUI:
             current = ctk.get_appearance_mode()
 
             if current.lower() == "dark":
+
                 self.theme_switch.select()
+
             else:
+
                 self.theme_switch.deselect()
 
         except Exception:
@@ -1825,33 +2135,217 @@ class AssistantGUI:
             self.theme_switch.select()
 
     # =====================================================
-    # LOGGING
+    # CHAT MESSAGES
     # =====================================================
 
-    def _log(
-        self,
-        text: str
+    def _scroll_chat_to_bottom(
+        self
     ):
+
+        try:
+
+            self.chat_frame._parent_canvas.yview_moveto(
+                1.0
+            )
+
+        except Exception:
+            pass
+
+    def _add_message(
+        self,
+        text: str,
+        kind: str = "assistant"
+    ):
+
+        text = (
+            text or ""
+        ).strip()
 
         if not text:
             return
 
-        self.logbox.configure(
-            state="normal"
+        row = ctk.CTkFrame(
+            self.chat_frame,
+            fg_color="transparent"
         )
 
-        self.logbox.insert(
-            "end",
-            text.strip() + "\n"
+        row.pack(
+            fill="x",
+            pady=7,
+            padx=6
         )
 
-        self.logbox.see(
-            "end"
+        if kind == "user":
+
+            bubble_color = "#1F6AA5"
+            text_color = "#FFFFFF"
+            title_color = "#D4E9FF"
+            label_title = "Ты"
+            side = "right"
+            anchor = "e"
+            wrap = 560
+
+        elif kind == "system":
+
+            bubble_color = "#2A2A2A"
+            text_color = "#BEBEBE"
+            title_color = "#9A9A9A"
+            label_title = "Система"
+            side = "top"
+            anchor = "center"
+            wrap = 650
+
+        else:
+
+            bubble_color = "#22252A"
+            text_color = "#F0F0F0"
+            title_color = "#A0CFFF"
+            label_title = "AAYA"
+            side = "left"
+            anchor = "w"
+            wrap = 560
+
+        bubble = ctk.CTkFrame(
+            row,
+            corner_radius=18,
+            fg_color=bubble_color
         )
 
-        self.logbox.configure(
-            state="disabled"
+        if kind == "system":
+
+            bubble.pack(
+                anchor=anchor,
+                pady=2
+            )
+
+        else:
+
+            bubble.pack(
+                side=side,
+                anchor=anchor,
+                padx=6
+            )
+
+        title = ctk.CTkLabel(
+            bubble,
+            text=label_title,
+            font=ctk.CTkFont(
+                size=12,
+                weight="bold"
+            ),
+            text_color=title_color,
+            anchor="w"
         )
+
+        title.pack(
+            anchor="w",
+            padx=14,
+            pady=(10, 2)
+        )
+
+        msg = ctk.CTkLabel(
+            bubble,
+            text=text,
+            justify="left",
+            wraplength=wrap,
+            anchor="w",
+            text_color=text_color,
+            font=ctk.CTkFont(
+                size=14
+            )
+        )
+
+        msg.pack(
+            anchor="w",
+            padx=14,
+            pady=(0, 12)
+        )
+
+        self.root.after(
+            80,
+            self._scroll_chat_to_bottom
+        )
+
+    def _add_user_message(
+        self,
+        text: str
+    ):
+
+        self._add_message(
+            text,
+            "user"
+        )
+
+    def _add_assistant_message(
+        self,
+        text: str
+    ):
+
+        self._add_message(
+            text,
+            "assistant"
+        )
+
+    def _add_system_message(
+        self,
+        text: str
+    ):
+
+        self._add_message(
+            text,
+            "system"
+        )
+
+    def clear_chat(
+        self
+    ):
+
+        for widget in self.chat_frame.winfo_children():
+
+            widget.destroy()
+
+        self._add_assistant_message(
+            "Чат очищен. Чем займёмся?"
+        )
+
+    def _add_system_status(
+        self,
+        text: str
+    ):
+
+        text = (
+            text or ""
+        ).strip()
+
+        if not text:
+            return
+
+        self._system_lines.append(
+            text
+        )
+
+        self._system_lines = self._system_lines[
+            -3:
+        ]
+
+        try:
+
+            self.system_status_label.configure(
+                text=" · ".join(
+                    self._system_lines
+                )
+            )
+
+        except Exception:
+            pass
+
+        print(
+            text
+        )
+
+    # =====================================================
+    # STATUS
+    # =====================================================
 
     def set_status(
         self,
@@ -1862,6 +2356,29 @@ class AssistantGUI:
             text=text
         )
 
+        low = text.lower()
+
+        if "слушаю" in low:
+
+            self.status_badge.configure(
+                text="● Слушаю",
+                text_color="#FFD66B"
+            )
+
+        elif "выполняю" in low:
+
+            self.status_badge.configure(
+                text="● Работаю",
+                text_color="#7FDBFF"
+            )
+
+        else:
+
+            self.status_badge.configure(
+                text="● Готов",
+                text_color="#7CFF95"
+            )
+
     def set_mic(
         self,
         on: bool
@@ -1869,15 +2386,53 @@ class AssistantGUI:
 
         if on:
 
-            self.mic_indicator.configure(
-                text="● Микрофон: ВКЛ"
+            self.mic_badge.configure(
+                text="Микрофон: ВКЛ",
+                text_color="#7CFF95"
             )
 
         else:
 
-            self.mic_indicator.configure(
-                text="● Микрофон: выкл"
+            self.mic_badge.configure(
+                text="Микрофон: выкл",
+                text_color="#B7B7B7"
             )
+
+    # =====================================================
+    # QUICK ACTIONS
+    # =====================================================
+
+    def _prefill_task(
+        self
+    ):
+
+        self.entry.delete(
+            0,
+            "end"
+        )
+
+        self.entry.insert(
+            0,
+            "создай задачу "
+        )
+
+        self.entry.focus()
+
+    def _prefill_note(
+        self
+    ):
+
+        self.entry.delete(
+            0,
+            "end"
+        )
+
+        self.entry.insert(
+            0,
+            "создай заметку "
+        )
+
+        self.entry.focus()
 
     # =====================================================
     # THEME
@@ -1895,18 +2450,10 @@ class AssistantGUI:
                     "dark"
                 )
 
-                self._log(
-                    "Тема: Dark"
-                )
-
             else:
 
                 ctk.set_appearance_mode(
                     "light"
-                )
-
-                self._log(
-                    "Тема: Light"
                 )
 
         except Exception:
@@ -2047,10 +2594,14 @@ class AssistantGUI:
         self._last_text_handled = norm
         self._last_text_time = now
 
+        self._add_user_message(
+            text
+        )
+
         if norm in self.exit_phrases:
 
-            self._log(
-                "Команда: пока -> завершение работы"
+            self._add_assistant_message(
+                "Выключаюсь."
             )
 
             self.notifier.toast(
@@ -2073,10 +2624,6 @@ class AssistantGUI:
 
         self.set_status(
             "Статус: выполняю команду"
-        )
-
-        self._log(
-            f"Команда: {text}"
         )
 
         buf = io.StringIO()
@@ -2104,15 +2651,35 @@ class AssistantGUI:
             raw
         )
 
-        for line in cleaned:
-
-            self._log(
-                line
-            )
-
         answer = _final_answer_from_captured(
             raw
         ) or "Готово."
+
+        if len(
+            cleaned
+        ) > 1:
+
+            shown_lines = []
+
+            for line in cleaned:
+
+                if line not in shown_lines:
+
+                    shown_lines.append(
+                        line
+                    )
+
+            visual_answer = "\n".join(
+                shown_lines
+            )
+
+        else:
+
+            visual_answer = answer
+
+        self._add_assistant_message(
+            visual_answer
+        )
 
         self.notifier.toast(
             "AAYA",
@@ -2157,19 +2724,25 @@ class AssistantGUI:
         self.root.after(
             0,
             lambda:
-            self.set_mic(True)
+            self.set_mic(
+                True
+            )
         )
 
         self.root.after(
             0,
             lambda:
-            self.set_status("Статус: слушаю")
+            self.set_status(
+                "Статус: слушаю"
+            )
         )
 
         self.root.after(
             0,
             lambda:
-            self._log("Слушаю…")
+            self._add_system_status(
+                "Слушаю..."
+            )
         )
 
         self.notifier.toast(
@@ -2211,7 +2784,8 @@ class AssistantGUI:
                 )
 
                 text = (
-                    text or ""
+                    text
+                    or ""
                 ).strip()
 
             except sr.UnknownValueError:
@@ -2230,8 +2804,8 @@ class AssistantGUI:
                 self.root.after(
                     0,
                     lambda err=e:
-                    self._log(
-                        f"Ошибка сервиса распознавания речи: {err}"
+                    self._add_system_status(
+                        f"Ошибка сервиса распознавания: {err}"
                     )
                 )
 
@@ -2242,20 +2816,12 @@ class AssistantGUI:
                 self.root.after(
                     0,
                     lambda err=e:
-                    self._log(
+                    self._add_system_status(
                         f"Ошибка распознавания: {err}"
                     )
                 )
 
             if text:
-
-                self.root.after(
-                    0,
-                    lambda t=text:
-                    self._log(
-                        f"Распознано: {t}"
-                    )
-                )
 
                 self.root.after(
                     0,
@@ -2270,8 +2836,8 @@ class AssistantGUI:
                 self.root.after(
                     0,
                     lambda:
-                    self._log(
-                        "Ничего не распознано."
+                    self._add_system_status(
+                        "Ничего не распознано"
                     )
                 )
 
@@ -2285,8 +2851,8 @@ class AssistantGUI:
             self.root.after(
                 0,
                 lambda err=e:
-                self._log(
-                    f"Ошибка: микрофон или доступ к аудио: {repr(err)}"
+                self._add_system_status(
+                    f"Ошибка микрофона: {repr(err)}"
                 )
             )
 
@@ -2304,13 +2870,17 @@ class AssistantGUI:
             self.root.after(
                 0,
                 lambda:
-                self.set_mic(False)
+                self.set_mic(
+                    False
+                )
             )
 
             self.root.after(
                 0,
                 lambda:
-                self.set_status("Статус: ожидание")
+                self.set_status(
+                    "Статус: ожидание"
+                )
             )
 
     # =====================================================
@@ -2336,10 +2906,6 @@ class AssistantGUI:
                     "Работаю в фоне. Открыть можно из трея."
                 )
 
-                self._log(
-                    "Окно скрыто в трей."
-                )
-
                 return
 
             except Exception as e:
@@ -2355,10 +2921,6 @@ class AssistantGUI:
             self.notifier.toast(
                 "AAYA",
                 "Трей недоступен, окно просто свернуто."
-            )
-
-            self._log(
-                "Трей недоступен, окно свернуто."
             )
 
         except Exception as e:
@@ -2396,10 +2958,6 @@ class AssistantGUI:
             except Exception:
                 pass
 
-            self._log(
-                "Окно AAYA открыто."
-            )
-
         except Exception as e:
 
             print(
@@ -2414,10 +2972,6 @@ class AssistantGUI:
             return
 
         self._closing = True
-
-        self._log(
-            "Завершение работы…"
-        )
 
         try:
 
